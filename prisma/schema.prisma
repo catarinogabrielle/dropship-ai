@@ -1,0 +1,118 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model ApiCredential {
+  id            String    @id @default(cuid())
+  provider      String    @unique // "OPENAI" | "ELEVENLABS" | "HEYGEN" | "TIKTOK" | "META_ADS" | "GOOGLE_ADS" | "KIWIFY" | "SHOPIFY"
+  apiKey        String
+  accountId     String?
+  pixelId       String?
+  webhookSecret String?
+  isVerified    Boolean   @default(false)
+  accountName   String?
+  currency      String?
+  lastTestedAt  DateTime?
+  updatedAt     DateTime  @updatedAt
+}
+
+model Product {
+  id                 String     @id @default(cuid())
+  title              String
+  sourceUrl          String
+  segment            String     // "KIWIFY_GLOBAL" | "SHOPIFY_US" | "TIKTOK_SHOP"
+  rawScrapedText     String
+  costUsd            Float
+  priceUsd           Float
+  orderBumpUsd       Float      @default(0.0)
+  shippingUsd        Float      @default(0.0)
+  gatewayFeePercent  Float      @default(9.99)
+  gatewayFeeFixedUsd Float      @default(0.80)
+  breakevenCpaUsd    Float
+  breakevenRoas      Float
+  targetCpaUsd       Float
+  avatarProfileJson  String
+  painPointsJson     String
+  uniqueMechanism    String
+  creatives          Creative[]
+  campaigns          Campaign[]
+  sales              Sale[]
+  createdAt          DateTime   @default(now())
+}
+
+model Creative {
+  id                  String   @id @default(cuid())
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  angle               String   // "PAS_DIRECT" | "UGC_STORYTELLING" | "SHOCK_HOOK"
+  hookEn              String
+  bodyEn              String
+  ctaEn               String
+  metaPrimaryText     String
+  metaHeadline        String
+  googleHeadlinesJson String
+  orderBumpCopyEn     String
+  translationPt       String
+  audioFilePath       String?
+  videoFilePath       String?
+  tiktokPublishId     String?
+  metaCreativeId      String?
+  status              String   @default("GENERATED")
+  createdAt           DateTime @default(now())
+}
+
+model Campaign {
+  id                 String   @id @default(cuid())
+  productId          String?
+  product            Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  platform           String   // "META_ADS" | "GOOGLE_ADS" | "TIKTOK_ADS"
+  externalCampaignId String?
+  externalAdSetId    String   @unique
+  name               String
+  dailyBudgetUsd     Float
+  spendUsd           Float    @default(0.0)
+  impressions        Int      @default(0)
+  clicks             Int      @default(0)
+  videoP25Watched    Int      @default(0)
+  hookRate           Float    @default(0.0)
+  ctr                Float    @default(0.0)
+  purchases          Int      @default(0)
+  revenueUsd         Float    @default(0.0)
+  cpaUsd             Float    @default(0.0)
+  roas               Float    @default(0.0)
+  status             String   @default("ACTIVE")
+  lastSyncedAt       DateTime @default(now())
+}
+
+model Sale {
+  id                String   @id @default(cuid())
+  productId         String?
+  product           Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  platform          String   // "KIWIFY_GLOBAL" | "SHOPIFY_US" | "TIKTOK_SHOP"
+  externalOrderId   String   @unique
+  customerEmailHash String?
+  customerCountry   String   @default("US")
+  grossUsd          Float
+  gatewayFeeUsd     Float
+  netUsd            Float
+  exchangeRateBrl   Float
+  netBrl            Float
+  capiSent          Boolean  @default(false)
+  status            String   @default("PAID")
+  createdAt         DateTime @default(now())
+}
+
+model AutomationLog {
+  id          String   @id @default(cuid())
+  module      String
+  action      String
+  targetId    String?
+  httpStatus  Int?
+  detailsJson String
+  createdAt   DateTime @default(now())
+}
