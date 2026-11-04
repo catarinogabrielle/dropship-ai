@@ -68,18 +68,37 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { campaignId, productId } = await req.json();
+    const { campaignId, productId, status } = await req.json();
     if (!campaignId) {
       return NextResponse.json({ error: 'campaignId obrigatorio' }, { status: 400 });
     }
+
+    const existing = await prisma.campaign.findUnique({ where: { id: campaignId } });
+    if (!existing) {
+      return NextResponse.json({ error: 'Campanha nao encontrada' }, { status: 404 });
+    }
+
+    // Se o usuario alternou o status (ACTIVE/PAUSED), atualiza tambem na Meta Graph API se conectada
+    if (status && (status === 'ACTIVE' || status === 'PAUSED')) {
+      try {
+        const metaService = new MetaAdsService();
+        await metaService.updateAdSetBudgetOrStatus(existing.externalAdSetId, { status });
+      } catch {
+        // Prossegue com atualizacao local caso seja campanha offline/outra plataforma
+      }
+    }
+
     const updated = await prisma.campaign.update({
       where: { id: campaignId },
-      data: { productId: productId || null },
+      data: {
+        ...(productId !== undefined ? { productId: productId || null } : {}),
+        ...(status ? { status, lastSyncedAt: new Date() } : {}),
+      },
       include: { product: true },
     });
     return NextResponse.json({ campaign: updated });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erro ao vincular produto a campanha';
+    const message = error instanceof Error ? error.message : 'Erro ao atualizar campanha';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

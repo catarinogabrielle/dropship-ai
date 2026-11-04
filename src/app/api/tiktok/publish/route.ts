@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { TikTokService } from '@/services/tiktok.service';
@@ -20,9 +22,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Criativo nao encontrado no banco.' }, { status: 404 });
     }
 
-    const localFilePath = creative.videoFilePath
-      ? path.join(process.cwd(), 'public', creative.videoFilePath.replace(/^\//, ''))
-      : undefined;
+    let localFilePath: string | undefined;
+    if (creative.videoFilePath) {
+      if (creative.videoFilePath.startsWith('data:video/mp4;base64,')) {
+        const tmpDir = path.join(os.tmpdir(), 'generated', 'video');
+        fs.mkdirSync(tmpDir, { recursive: true });
+        localFilePath = path.join(tmpDir, `${creative.id}.mp4`);
+        const b64 = creative.videoFilePath.replace('data:video/mp4;base64,', '');
+        fs.writeFileSync(localFilePath, Buffer.from(b64, 'base64'));
+      } else {
+        localFilePath = path.join(
+          process.cwd(),
+          'public',
+          creative.videoFilePath.replace(/^\//, '')
+        );
+      }
+    }
 
     const tiktokService = new TikTokService();
     const postTitle =

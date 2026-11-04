@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 
 export async function GET() {
+  await ensureSqliteTables();
   const credentials = await prisma.apiCredential.findMany({
     orderBy: { updatedAt: 'desc' },
   });
@@ -11,6 +12,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const body = await req.json();
     const { provider, apiKey, accountId, pixelId, webhookSecret } = body;
 

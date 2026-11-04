@@ -129,6 +129,16 @@ export default function Module4TrafficBot({
     await onRefresh();
   };
 
+  const handleToggleStatus = async (campaignId: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+    await fetch('/api/ads/sync', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaignId, status: nextStatus }),
+    });
+    await onRefresh();
+  };
+
   return (
     <div className="space-y-5">
       {/* BARRA DE CONTROLE COMPACTA */}
@@ -449,15 +459,18 @@ export default function Module4TrafficBot({
                       </select>
                     </td>
                     <td className="py-2.5 px-3">
-                      <span
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(camp.id, camp.status)}
+                        title="Clique para pausar ou ativar este conjunto"
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition ${
                           camp.status === 'ACTIVE'
-                            ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                            : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                            ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
+                            : 'bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25'
                         }`}
                       >
                         {camp.status === 'ACTIVE' ? 'ATIVO' : 'PAUSADO'}
-                      </span>
+                      </button>
                     </td>
                     <td className="py-2.5 px-3 font-semibold text-white">
                       ${camp.dailyBudgetUsd.toFixed(2)}

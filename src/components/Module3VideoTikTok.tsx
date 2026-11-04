@@ -106,16 +106,6 @@ export default function Module3VideoTikTok({
 
   const handleRenderVideoWithFfmpeg = async (creative: CreativeData) => {
     const file = selectedVideoFiles[creative.id];
-    if (!file) {
-      setFeedback((prev) => ({
-        ...prev,
-        [creative.id]: {
-          type: 'error',
-          message: 'Selecione primeiro um arquivo de vídeo .MP4 no seu computador.',
-        },
-      }));
-      return;
-    }
 
     setLoadingVideoId(creative.id);
     setFeedback((prev) => {
@@ -128,7 +118,9 @@ export default function Module3VideoTikTok({
       const formData = new FormData();
       formData.append('creativeId', creative.id);
       formData.append('voiceId', selectedVoice[creative.id] || US_VOICES[0].id);
-      formData.append('video', file);
+      if (file) {
+        formData.append('video', file);
+      }
 
       const res = await fetch('/api/video/render', {
         method: 'POST',

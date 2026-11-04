@@ -11,7 +11,26 @@ import { MetaAdsService } from '@/services/meta-ads.service';
  */
 export async function POST(req: NextRequest) {
   try {
-    const payload = await req.json();
+    const rawBody = await req.text();
+    const payload = JSON.parse(rawBody || '{}');
+
+    // Valida assinatura HMAC-SHA256 da Shopify se webhookSecret estiver configurado
+    const shopifyCred = await prisma.apiCredential.findUnique({ where: { provider: 'SHOPIFY' } });
+    const configuredSecret = shopifyCred?.webhookSecret;
+    const hmacHeader = req.headers.get('x-shopify-hmac-sha256');
+
+    if (configuredSecret && hmacHeader) {
+      const computedHmac = crypto
+        .createHmac('sha256', configuredSecret)
+        .update(rawBody, 'utf8')
+        .digest('base64');
+      if (computedHmac !== hmacHeader) {
+        return NextResponse.json(
+          { error: 'Assinatura HMAC de Webhook Shopify invalida.' },
+          { status: 401 }
+        );
+      }
+    }
 
     const financialStatus = String(
       payload.financial_status || payload.order_status || payload.status || ''

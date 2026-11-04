@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
 import { ensureAutopilotCronRunning } from '@/services/autopilot-engine';
 
 export async function GET() {
   try {
+    await ensureSqliteTables();
     const cronState = ensureAutopilotCronRunning();
 
     const [

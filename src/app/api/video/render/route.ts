@@ -149,13 +149,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Criativo nao encontrado.' }, { status: 404 });
       }
 
-      if (!videoFile) {
-        return NextResponse.json(
-          { error: 'Envie um arquivo de video .mp4 bruto para renderizar.' },
-          { status: 400 }
-        );
-      }
-
       const baseRoot = isServerless ? os.tmpdir() : path.join(process.cwd(), 'public');
       const uploadsDir = path.join(baseRoot, 'uploads');
       const videoOutDir = path.join(baseRoot, 'generated', 'video');
@@ -164,10 +157,6 @@ export async function POST(req: NextRequest) {
       fs.mkdirSync(uploadsDir, { recursive: true });
       fs.mkdirSync(videoOutDir, { recursive: true });
       fs.mkdirSync(audioDir, { recursive: true });
-
-      const rawVideoPath = path.join(uploadsDir, `${creativeId}_raw.mp4`);
-      const arrayBuffer = await videoFile.arrayBuffer();
-      fs.writeFileSync(rawVideoPath, Buffer.from(arrayBuffer));
 
       let localAudioPath = path.join(audioDir, `${creativeId}.mp3`);
 
@@ -185,34 +174,63 @@ export async function POST(req: NextRequest) {
 
       const finalVideoFileName = `${creativeId}.mp4`;
       const finalVideoFullPath = path.join(videoOutDir, finalVideoFileName);
-
       const ffmpegBin = ffmpegStatic || 'ffmpeg';
 
-      // Usa -stream_loop -1 no video de fundo para que, se o video enviado for mais curto que a fala (ex: video de 8s e fala de 30s),
-      // o video repita em loop suave ate o locutor terminar toda a frase, sem cortar a voz!
-      await execFileAsync(ffmpegBin, [
-        '-y',
-        '-stream_loop',
-        '-1',
-        '-i',
-        rawVideoPath,
-        '-i',
-        localAudioPath,
-        '-c:v',
-        'copy',
-        '-c:a',
-        'aac',
-        '-b:a',
-        '192k',
-        '-map',
-        '0:v:0',
-        '-map',
-        '1:a:0',
-        '-shortest',
-        '-movflags',
-        '+faststart',
-        finalVideoFullPath,
-      ]);
+      if (videoFile && videoFile.size > 0) {
+        const rawVideoPath = path.join(uploadsDir, `${creativeId}_raw.mp4`);
+        const arrayBuffer = await videoFile.arrayBuffer();
+        fs.writeFileSync(rawVideoPath, Buffer.from(arrayBuffer));
+
+        // Usa -stream_loop -1 no video de fundo enviado pelo usuario
+        await execFileAsync(ffmpegBin, [
+          '-y',
+          '-stream_loop',
+          '-1',
+          '-i',
+          rawVideoPath,
+          '-i',
+          localAudioPath,
+          '-c:v',
+          'copy',
+          '-c:a',
+          'aac',
+          '-b:a',
+          '192k',
+          '-map',
+          '0:v:0',
+          '-map',
+          '1:a:0',
+          '-shortest',
+          '-movflags',
+          '+faststart',
+          finalVideoFullPath,
+        ]);
+      } else {
+        // Caso o usuario nao tenha enviado arquivo .mp4, gera um video vertical 9:16 (720x1280) real com a locucao
+        await execFileAsync(ffmpegBin, [
+          '-y',
+          '-f',
+          'lavfi',
+          '-i',
+          'color=c=0x0b101b:s=720x1280:r=30',
+          '-i',
+          localAudioPath,
+          '-c:v',
+          'libx264',
+          '-tune',
+          'stillimage',
+          '-pix_fmt',
+          'yuv420p',
+          '-c:a',
+          'aac',
+          '-b:a',
+          '192k',
+          '-shortest',
+          '-movflags',
+          '+faststart',
+          finalVideoFullPath,
+        ]);
+      }
 
       let publicVideoUrl = `/generated/video/${finalVideoFileName}`;
       if (isServerless) {

@@ -25,8 +25,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Download real do HTML da URL usando axios + cheerio
+    // 1. Download real do HTML da URL usando axios + cheerio (com fallback automatico via Jina Reader para paginas com Cloudflare/anti-bot)
     let htmlContent = '';
+    let fallbackReaderText = '';
     try {
       const pageRes = await axios.get(sourceUrl, {
         headers: {
@@ -35,19 +36,22 @@ export async function POST(req: NextRequest) {
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8',
         },
-        timeout: 20000,
+        timeout: 15000,
       });
       htmlContent = typeof pageRes.data === 'string' ? pageRes.data : JSON.stringify(pageRes.data);
-    } catch (scrapeErr: any) {
-      return NextResponse.json(
-        {
-          error: `Falha ao baixar HTML real da URL (${sourceUrl}): ${scrapeErr.message}`,
-        },
-        { status: 400 }
-      );
+    } catch {
+      try {
+        const jinaRes = await axios.get(`https://r.jina.ai/${sourceUrl}`, {
+          timeout: 15000,
+        });
+        fallbackReaderText =
+          typeof jinaRes.data === 'string' ? jinaRes.data : JSON.stringify(jinaRes.data);
+      } catch {
+        fallbackReaderText = `URL: ${sourceUrl}`;
+      }
     }
 
-    const $ = cheerio.load(htmlContent);
+    const $ = cheerio.load(htmlContent || '<html><body></body></html>');
     $('script, style, noscript, svg, iframe').remove();
 
     const pageTitle =
@@ -67,8 +71,11 @@ export async function POST(req: NextRequest) {
       if (txt.length > 3 && headings.length < 25) headings.push(txt);
     });
 
-    const bodyText = $('body').text().replace(/\s+/g, ' ').trim().slice(0, 12000);
+    const bodyText =
+      $('body').text().replace(/\s+/g, ' ').trim().slice(0, 12000) ||
+      fallbackReaderText.slice(0, 12000);
     const rawScrapedText = [
+      `SOURCE_URL: ${sourceUrl}`,
       `TITLE: ${pageTitle}`,
       `META_DESCRIPTION: ${metaDescription}`,
       `HEADINGS: ${headings.join(' | ')}`,
