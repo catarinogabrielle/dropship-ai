@@ -24,10 +24,12 @@ interface Module3VideoTikTokProps {
 }
 
 const US_VOICES = [
-  { id: '21m00Tcm4TlvDq8ikWAM', label: 'Rachel (Voz Feminina Americana • Estilo TikTok/Reels)' },
-  { id: 'TxGEqnHWrfWFTfGW9XjX', label: 'Josh (Voz Masculina Americana • Jovem e Dinâmica)' },
-  { id: 'pNInz6obpgDQGcFmaJgB', label: 'Adam (Voz Masculina Americana • Locutor Sério/Autoridade)' },
-  { id: 'EXAVITQu4vr4xnSDxMaL', label: 'Bella (Voz Feminina Americana • Suave e Conversacional)' },
+  { id: 'cgSgspJ2msm6clMCkdW9', label: 'Jessica (Mulher Jovem EUA • Melhor p/ TikTok, Beleza & Emagrecimento)' },
+  { id: 'iP95p4xoKVk53GoZ742B', label: 'Chris (Homem Casual EUA • Melhor p/ Depoimento Natural & Gadgets)' },
+  { id: 'nPczCjzI2devNBz1zQrb', label: 'Brian (Locutor Sério EUA • Melhor p/ Saúde, Dores & Finanças)' },
+  { id: '21m00Tcm4TlvDq8ikWAM', label: 'Rachel (Mulher Americana Clássica • Excelente p/ E-books e Guias)' },
+  { id: 'TxGEqnHWrfWFTfGW9XjX', label: 'Josh (Homem Dinâmico EUA • Excelente p/ Anúncios Rápidos)' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', label: 'Bella (Mulher Suave EUA • Excelente p/ Relacionamento, Pets & Sono)' },
 ];
 
 export default function Module3VideoTikTok({

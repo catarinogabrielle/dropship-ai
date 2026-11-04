@@ -12,6 +12,18 @@ const execFileAsync = promisify(execFile);
 
 const isServerless = Boolean(process.env.VERCEL);
 
+/**
+ * Limpa possiveis marcacoes de cena entre colchetes [Scene] ou parenteses de direcao
+ * para garantir que o locutor da ElevenLabs leia apenas a fala humana natural
+ */
+function sanitizeSpokenScript(rawScript: string): string {
+  return rawScript
+    .replace(/\[.*?\]/g, '')
+    .replace(/\((?:scene|hook|body|cta|pause|visual).*?\)/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function generateElevenLabsAudio(creativeId: string, scriptText: string, voiceId: string) {
   const cred = await prisma.apiCredential.findUnique({ where: { provider: 'ELEVENLABS' } });
   const apiKey = cred?.apiKey || process.env.ELEVENLABS_API_KEY;
@@ -22,15 +34,19 @@ async function generateElevenLabsAudio(creativeId: string, scriptText: string, v
     );
   }
 
-  const cleanVoiceId = voiceId || '21m00Tcm4TlvDq8ikWAM'; // Rachel (US Native Voice)
+  const cleanVoiceId = voiceId || '21m00Tcm4TlvDq8ikWAM';
+  const cleanSpokenText = sanitizeSpokenScript(scriptText);
+
   const response = await axios.post(
     `https://api.elevenlabs.io/v1/text-to-speech/${cleanVoiceId}`,
     {
-      text: scriptText,
+      text: cleanSpokenText,
       model_id: 'eleven_multilingual_v2',
       voice_settings: {
-        stability: 0.45,
-        similarity_boost: 0.8,
+        stability: 0.40,
+        similarity_boost: 0.85,
+        style: 0.35,
+        use_speaker_boost: true,
       },
     },
     {
@@ -105,7 +121,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Criativo nao encontrado.' }, { status: 404 });
       }
 
-      const fullScript = `${creative.hookEn}. ${creative.bodyEn}. ${creative.ctaEn}`.trim();
+      const fullScript = `${creative.hookEn} ... ${creative.bodyEn} ... ${creative.ctaEn}`.trim();
       const { updated } = await generateElevenLabsAudio(creative.id, fullScript, voiceId);
 
       return NextResponse.json({
@@ -114,7 +130,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // MODO 2: multipart/form-data com Upload Real de .mp4 + Merge com Locucao via FFmpeg
+    // MODO 2: multipart/form-data com Upload Real de .mp4 + Merge Inteligente com Locucao via FFmpeg
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
       const creativeId = String(formData.get('creativeId') || '');
@@ -160,7 +176,7 @@ export async function POST(req: NextRequest) {
           const b64 = creative.audioFilePath.replace('data:audio/mpeg;base64,', '');
           fs.writeFileSync(localAudioPath, Buffer.from(b64, 'base64'));
         } else {
-          const fullScript = `${creative.hookEn}. ${creative.bodyEn}. ${creative.ctaEn}`.trim();
+          const fullScript = `${creative.hookEn} ... ${creative.bodyEn} ... ${creative.ctaEn}`.trim();
           const resAudio = await generateElevenLabsAudio(creative.id, fullScript, voiceId);
           creative = resAudio.updated;
           localAudioPath = resAudio.localDiskPath;
@@ -172,8 +188,12 @@ export async function POST(req: NextRequest) {
 
       const ffmpegBin = ffmpegStatic || 'ffmpeg';
 
+      // Usa -stream_loop -1 no video de fundo para que, se o video enviado for mais curto que a fala (ex: video de 8s e fala de 30s),
+      // o video repita em loop suave ate o locutor terminar toda a frase, sem cortar a voz!
       await execFileAsync(ffmpegBin, [
         '-y',
+        '-stream_loop',
+        '-1',
         '-i',
         rawVideoPath,
         '-i',
@@ -182,11 +202,15 @@ export async function POST(req: NextRequest) {
         'copy',
         '-c:a',
         'aac',
+        '-b:a',
+        '192k',
         '-map',
         '0:v:0',
         '-map',
         '1:a:0',
         '-shortest',
+        '-movflags',
+        '+faststart',
         finalVideoFullPath,
       ]);
 
@@ -213,7 +237,7 @@ export async function POST(req: NextRequest) {
           httpStatus: 200,
           detailsJson: JSON.stringify({
             serverless: isServerless,
-            videoRendered: true,
+            videoLoopEnabled: true,
           }),
         },
       });

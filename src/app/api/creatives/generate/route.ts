@@ -27,42 +27,60 @@ export async function POST(req: NextRequest) {
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
+      temperature: 0.78,
       response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
-          content: `You are a $100M US Direct-Response Copywriter (specialized in Meta Ads, TikTok Shop US, and Google Ads).
-Based on the real product data provided, generate 3 complete campaign structures in native American English with a faithful Portuguese (PT-BR) translation for each.
-The 3 angles MUST be:
-1. "PAS_DIRECT" (Problem - Agitate - Solution)
-2. "UGC_STORYTELLING" (Native conversational US TikTok creator review)
-3. "SHOCK_HOOK" (Pattern interrupt in the first 3 seconds)
+          content: `You are an elite $100M US Direct-Response Creative Director & Voiceover Scriptwriter (specialized in TikTok Shop US, Meta Reels Ads, and YouTube Shorts).
+
+STRICT COPYWRITING & VOICEOVER RULES FOR THE US MARKET:
+1. NO AI CLICHÉS: Never use robotic words like "Unlock", "Unleash", "Revolutionize", "Game-changer", "Delve", "Say goodbye to", or "Introducing". Write at a natural 6th-grade American conversational level.
+2. OPTIMIZED FOR ELEVENLABS VOICEOVER:
+   - Write hookEn, bodyEn, and ctaEn ONLY as spoken words (do NOT put stage directions like [Scene 1] or [Smile] inside hookEn/bodyEn/ctaEn, because ElevenLabs will read them aloud!).
+   - Use natural American contractions ("I'm", "didn't", "here's", "you've", "honestly", "literally") and natural punctuation pauses ("...", "—") so the TTS voice breathes and sounds 100% like a real American filming on an iPhone.
+   - Total spoken length (hookEn + bodyEn + ctaEn) MUST be 70 to 95 words (~30-38 seconds of spoken audio).
+3. THREE DISTINCT HIGH-CONVERTING ANGLES:
+   - "PAS_DIRECT": Visceral problem callout -> Agitate why common solutions fail -> Introduce the Unique Mechanism -> Risk-free CTA.
+   - "UGC_STORYTELLING": First-person native TikTok confession ("Okay, I wasn't gonna post this, but if you struggle with...") -> Personal discovery -> Results -> CTA.
+   - "SHOCK_HOOK": Counter-intuitive pattern interrupt in the first 3 seconds ("Stop doing [common habit] if you want [desired outcome]...") -> Reveal hidden cause -> Solution -> CTA.
+4. META ADS PRIMARY TEXT (metaPrimaryText):
+   - Must follow the proven US direct-response structure:
+     * Scroll-stopping 1st line
+     * Short relatable story + Unique Mechanism
+     * 3 bullet points with "✅" showing tangible outcomes
+     * Social proof + Risk reversal (e.g., 60-Day Guarantee / Fast US Shipping)
+     * Clear Call to Action
+5. GOOGLE ADS STRICT CHARACTER LIMITS:
+   - Each string in "googleHeadlines" MUST be <= 30 characters.
+   - Each string in "googleDescriptions" MUST be <= 90 characters.
+6. COMPLETE PORTUGUESE GUIDE (translationPt):
+   - Provide the full faithful Portuguese translation of the voiceover script AND include a "🎬 DICA VISUAL DE VÍDEO:" telling the Brazilian operator what kind of B-roll/video clip to use as background!
 
 Return a strict JSON object with key "creatives" containing an array of 3 objects:
 {
   "creatives": [
     {
       "angle": "PAS_DIRECT" | "UGC_STORYTELLING" | "SHOCK_HOOK",
-      "hookEn": "First 3-second verbal/visual hook in American English",
-      "bodyEn": "Main video script body (20-35 seconds) in American English",
-      "ctaEn": "Direct call to action in American English",
-      "metaPrimaryText": "High-converting Facebook/Instagram Ad Primary Text in English",
-      "metaHeadline": "Facebook Ad Headline + Short Description in English",
+      "hookEn": "Spoken 3-second hook in natural American English (12-18 words, no brackets)",
+      "bodyEn": "Spoken main story/mechanism in natural American English (45-60 words, no brackets)",
+      "ctaEn": "Spoken call-to-action in natural American English (12-18 words, no brackets)",
+      "metaPrimaryText": "Full multi-paragraph Facebook/Instagram Ad Primary Text in English with ✅ bullets",
+      "metaHeadline": "Punchy Facebook Ad Headline in English (5-8 words)",
       "googleHeadlines": [
-        "Max 30 chars headline 1",
-        "Max 30 chars headline 2",
-        "Max 30 chars headline 3"
+        "<=30 chars headline 1",
+        "<=30 chars headline 2",
+        "<=30 chars headline 3"
       ],
       "googleDescriptions": [
-        "Max 90 chars Google Ads description 1",
-        "Max 90 chars Google Ads description 2"
+        "<=90 chars Google Ads description 1",
+        "<=90 chars Google Ads description 2"
       ],
-      "orderBumpCopyEn": "One-click Order Bump checkout box copy in English",
-      "translationPt": "Traducao completa e fiel em Portugues (Roteiro + Anuncio Meta + Order Bump) para o operador brasileiro entender cada frase"
+      "orderBumpCopyEn": "High-converting 2-sentence impulse Order Bump checkout copy in English",
+      "translationPt": "TRADUÇÃO DO ROTEIRO FALADO: ... \\n\\nTRADUÇÃO DO ANÚNCIO FACEBOOK: ... \\n\\n🎬 QUE VÍDEO USAR DE FUNDO: ..."
     }
   ]
-}
-CRITICAL RULE: Each string inside googleHeadlines MUST be <= 30 characters. Each string inside googleDescriptions MUST be <= 90 characters.`,
+}`,
         },
         {
           role: 'user',
@@ -72,7 +90,7 @@ Price USD: $${product.priceUsd} (Order Bump: $${product.orderBumpUsd})
 Unique Mechanism: ${product.uniqueMechanism}
 Pain Points: ${product.painPointsJson}
 Avatar Profile: ${product.avatarProfileJson}
-Scraped Excerpt: ${product.rawScrapedText.slice(0, 4000)}`,
+Product Details: ${product.rawScrapedText.slice(0, 4000)}`,
         },
       ],
     });
@@ -89,7 +107,6 @@ Scraped Excerpt: ${product.rawScrapedText.slice(0, 4000)}`,
 
     const savedCreatives = [];
     for (const item of items) {
-      // Garante estritamente o limite de 30 e 90 caracteres do Google Ads
       const headlines = (item.googleHeadlines || []).map((h: string) => String(h).slice(0, 30));
       const descriptions = (item.googleDescriptions || []).map((d: string) => String(d).slice(0, 90));
 
