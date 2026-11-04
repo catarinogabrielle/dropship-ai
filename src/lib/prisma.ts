@@ -2,9 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 
-// Se estiver rodando na Vercel sem DATABASE_URL externo configurado,
-// copia o banco SQLite inicial para /tmp/production.db (gravavel em Serverless)
-if (process.env.VERCEL && (!process.env.DATABASE_URL || process.env.DATABASE_URL.startsWith('file:.'))) {
+// Garante que na Vercel o banco SQLite funcione imediatamente em /tmp/production.db
+// mesmo se alguma integracao tiver definido outro formato de DATABASE_URL
+if (process.env.VERCEL) {
   const tmpDbPath = '/tmp/production.db';
   try {
     if (!fs.existsSync(tmpDbPath)) {
@@ -17,7 +17,7 @@ if (process.env.VERCEL && (!process.env.DATABASE_URL || process.env.DATABASE_URL
   } catch {
     process.env.DATABASE_URL = 'file:/tmp/production.db';
   }
-} else if (!process.env.DATABASE_URL) {
+} else if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.startsWith('file:')) {
   process.env.DATABASE_URL = 'file:./production.db';
 }
 
@@ -26,6 +26,11 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient };
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
+    datasources: {
+      db: {
+        url: process.env.DATABASE_URL,
+      },
+    },
     log: ['error', 'warn'],
   });
 
