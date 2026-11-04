@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Rocket,
   Package,
@@ -94,8 +94,8 @@ const SEGMENT_PILLS: {
   label: string;
   fee: string;
 }[] = [
-  { id: 'KIWIFY_GLOBAL', label: 'Kiwify Global (Digital)', fee: '9.99% + $0.80' },
-  { id: 'SHOPIFY_US', label: 'Shopify US (Dropship)', fee: '2.9% + $0.30' },
+  { id: 'KIWIFY_GLOBAL', label: 'Kiwify Global', fee: '9.99%+$0.80' },
+  { id: 'SHOPIFY_US', label: 'Shopify US', fee: '2.9%+$0.30' },
   { id: 'TIKTOK_SHOP', label: 'TikTok Shop US', fee: '6.0%' },
   { id: 'ADS_SCALE', label: 'Escala Ads (Meta/Google)', fee: 'Auto-Scale' },
 ];
@@ -106,6 +106,7 @@ export default function AutopilotDashboardPage() {
     useState<SegmentType>('KIWIFY_GLOBAL');
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const mainScrollRef = useRef<HTMLElement | null>(null);
 
   const [systemStatus, setSystemStatus] = useState<SystemStatusData | null>(null);
   const [products, setProducts] = useState<ProductData[]>([]);
@@ -213,8 +214,8 @@ export default function AutopilotDashboardPage() {
   const handleSelectTab = (idx: number) => {
     setActiveTab(idx);
     setMobileMenuOpen(false);
-    if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (mainScrollRef.current) {
+      mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -319,7 +320,7 @@ export default function AutopilotDashboardPage() {
       </div>
 
       {/* Resumo Rápido Inferior na Sidebar */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 space-y-2.5">
+      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40 space-y-2.5 shrink-0">
         <div className="grid grid-cols-3 gap-1.5 text-center">
           <div className="rounded-lg bg-slate-900/90 border border-slate-800/80 py-1.5 px-1">
             <span className="text-[10px] text-slate-500 block">Produtos</span>
@@ -357,9 +358,9 @@ export default function AutopilotDashboardPage() {
   );
 
   return (
-    <div className="min-h-screen flex bg-[#070B12] text-slate-100">
-      {/* SIDEBAR DESKTOP (FIXA A PARTIR DE 1024px) */}
-      <aside className="hidden lg:flex w-72 shrink-0 border-r border-slate-800/80 bg-[#0B101B] flex-col justify-between sticky top-0 h-screen">
+    <div className="h-screen w-screen overflow-hidden flex bg-[#070B12] text-slate-100">
+      {/* SIDEBAR DESKTOP (100% TRAVADA, NUNCA ROLA COM A PÁGINA) */}
+      <aside className="hidden lg:flex w-72 shrink-0 border-r border-slate-800/80 bg-[#0B101B] flex-col justify-between h-full select-none">
         {renderSidebarContent()}
       </aside>
 
@@ -376,10 +377,10 @@ export default function AutopilotDashboardPage() {
         </div>
       )}
 
-      {/* CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* TOPBAR RESPONSIVA */}
-        <header className="sticky top-0 z-20 backdrop-blur-md bg-[#070B12]/90 border-b border-slate-800/80 px-3 sm:px-6 py-2.5 sm:py-3 space-y-2.5 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-4">
+      {/* COLUNA DIREITA: TOPBAR FIXA + CONTEÚDO CENTRAL COM SCROLL PRÓPRIO */}
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+        {/* TOPBAR FIXA */}
+        <header className="shrink-0 z-20 bg-[#070B12]/95 border-b border-slate-800/80 px-3 sm:px-6 py-2.5 sm:py-3 space-y-2.5 lg:space-y-0 lg:flex lg:items-center lg:justify-between lg:gap-3">
           {/* Linha 1 no Mobile: Menu Hamburger + Marca + Indicadores Financeiros */}
           <div className="flex items-center justify-between gap-2 lg:hidden">
             <div className="flex items-center gap-2.5 min-w-0">
@@ -433,7 +434,7 @@ export default function AutopilotDashboardPage() {
             </div>
           </div>
 
-          {/* Seletor de Segmento em Pílulas (Scroll Horizontal Suave no Mobile) */}
+          {/* Seletor de Segmento em Pílulas */}
           <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800/90 overflow-x-auto no-scrollbar max-w-full">
             {SEGMENT_PILLS.map((seg) => {
               const active = selectedSegment === seg.id;
@@ -444,7 +445,7 @@ export default function AutopilotDashboardPage() {
                     setSelectedSegment(seg.id);
                     if (seg.id === 'ADS_SCALE') handleSelectTab(4);
                   }}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-semibold transition flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     active
                       ? 'bg-emerald-500 text-slate-950 shadow-sm'
                       : 'text-slate-400 hover:text-white'
@@ -452,7 +453,7 @@ export default function AutopilotDashboardPage() {
                 >
                   <span>{seg.label}</span>
                   <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded hidden sm:inline ${
+                    className={`text-[10px] px-1.5 py-0.2 rounded hidden xl:inline ${
                       active
                         ? 'bg-slate-950/20 text-slate-950 font-bold'
                         : 'bg-slate-800 text-slate-400'
@@ -466,8 +467,8 @@ export default function AutopilotDashboardPage() {
           </div>
 
           {/* Indicadores Financeiros Desktop */}
-          <div className="hidden lg:flex items-center gap-2.5 shrink-0">
-            <div className="rounded-lg bg-slate-900 border border-slate-800 px-3 py-1.5 flex items-center gap-2 text-xs">
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
+            <div className="rounded-lg bg-slate-900 border border-slate-800 px-3 py-1.5 flex items-center gap-1.5 text-xs">
               <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
               <span className="text-slate-400">USD/BRL:</span>
               <strong className="text-white">R$ {exchangeRateBrl.toFixed(2)}</strong>
@@ -492,89 +493,94 @@ export default function AutopilotDashboardPage() {
           </div>
         </header>
 
-        {/* ÁREA CENTRAL DO MÓDULO ATIVO */}
-        <main className="flex-1 p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8 max-w-6xl w-full mx-auto space-y-5">
-          {activeTab === 0 && (
-            <Module0Setup
-              credentials={systemStatus?.credentials || []}
-              onRefresh={fetchAllRealData}
-              onNavigateTab={handleSelectTab}
-            />
-          )}
+        {/* ÁREA CENTRAL QUE ROLA INDEPENDENTEMENTE */}
+        <main
+          ref={mainScrollRef}
+          className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 pb-24 lg:pb-8"
+        >
+          <div className="max-w-6xl w-full mx-auto space-y-5">
+            {activeTab === 0 && (
+              <Module0Setup
+                credentials={systemStatus?.credentials || []}
+                onRefresh={fetchAllRealData}
+                onNavigateTab={handleSelectTab}
+              />
+            )}
 
-          {activeTab === 1 && (
-            <Module1Products
-              products={products}
-              selectedSegment={selectedSegment}
-              exchangeRateBrl={exchangeRateBrl}
-              onRefresh={fetchAllRealData}
-              onNavigateTab={handleSelectTab}
-            />
-          )}
+            {activeTab === 1 && (
+              <Module1Products
+                products={products}
+                selectedSegment={selectedSegment}
+                exchangeRateBrl={exchangeRateBrl}
+                onRefresh={fetchAllRealData}
+                onNavigateTab={handleSelectTab}
+              />
+            )}
 
-          {activeTab === 2 && (
-            <Module2Copywriting
-              products={products}
-              creatives={creatives}
-              onRefresh={fetchAllRealData}
-              onNavigateTab={handleSelectTab}
-            />
-          )}
+            {activeTab === 2 && (
+              <Module2Copywriting
+                products={products}
+                creatives={creatives}
+                onRefresh={fetchAllRealData}
+                onNavigateTab={handleSelectTab}
+              />
+            )}
 
-          {activeTab === 3 && (
-            <Module3VideoTikTok
-              creatives={creatives}
-              onRefresh={fetchAllRealData}
-              onNavigateTab={handleSelectTab}
-            />
-          )}
+            {activeTab === 3 && (
+              <Module3VideoTikTok
+                creatives={creatives}
+                onRefresh={fetchAllRealData}
+                onNavigateTab={handleSelectTab}
+              />
+            )}
 
-          {activeTab === 4 && (
-            <Module4TrafficBot
-              campaigns={campaigns}
-              products={products}
-              logs={systemStatus?.recentLogs || []}
-              isMetaConnected={isMetaConnected}
-              cronSchedule={
-                systemStatus?.cronState?.schedule || 'A cada 30 min'
-              }
-              onRefresh={fetchAllRealData}
-              onNavigateTab={handleSelectTab}
-            />
-          )}
-
-          {activeTab === 5 && (
-            <Module5SalesWebhooks
-              sales={salesData.sales}
-              summary={salesData.summary}
-              exchange={
-                systemStatus?.exchange || {
-                  rate: exchangeRateBrl,
-                  bid: exchangeRateBrl,
-                  ask: exchangeRateBrl,
-                  high: exchangeRateBrl,
-                  low: exchangeRateBrl,
-                  pctChange: 0,
-                  source: 'awesomeapi',
-                  timestamp: new Date().toISOString(),
+            {activeTab === 4 && (
+              <Module4TrafficBot
+                campaigns={campaigns}
+                products={products}
+                logs={systemStatus?.recentLogs || []}
+                isMetaConnected={isMetaConnected}
+                cronSchedule={
+                  systemStatus?.cronState?.schedule || 'A cada 30 min'
                 }
-              }
-              onRefresh={fetchAllRealData}
-            />
-          )}
+                onRefresh={fetchAllRealData}
+                onNavigateTab={handleSelectTab}
+              />
+            )}
 
-          {/* Barra Inferior de Próximo Passo */}
-          <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <span className="text-xs text-slate-500 text-center sm:text-left">
-              Etapa {activeTab} de 5 • Dados salvos em tempo real
-            </span>
-            <button
-              onClick={() => handleSelectTab((activeTab + 1) % 6)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2.5 text-xs font-bold text-slate-950 transition"
-            >
-              <span>{currentModuleMeta.nextLabel}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            {activeTab === 5 && (
+              <Module5SalesWebhooks
+                sales={salesData.sales}
+                summary={salesData.summary}
+                exchange={
+                  systemStatus?.exchange || {
+                    rate: exchangeRateBrl,
+                    bid: exchangeRateBrl,
+                    ask: exchangeRateBrl,
+                    high: exchangeRateBrl,
+                    low: exchangeRateBrl,
+                    pctChange: 0,
+                    source: 'awesomeapi',
+                    timestamp: new Date().toISOString(),
+                  }
+                }
+                onRefresh={fetchAllRealData}
+              />
+            )}
+
+            {/* Barra Inferior de Próximo Passo */}
+            <div className="pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <span className="text-xs text-slate-500 text-center sm:text-left">
+                Etapa {activeTab} de 5 • Dados salvos em tempo real
+              </span>
+              <button
+                onClick={() => handleSelectTab((activeTab + 1) % 6)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2.5 text-xs font-bold text-slate-950 transition"
+              >
+                <span>{currentModuleMeta.nextLabel}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </main>
       </div>

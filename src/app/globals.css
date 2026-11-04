@@ -8,7 +8,7 @@
 
 html,
 body {
-  @apply bg-[#070B12] text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200 overflow-x-hidden;
+  @apply bg-[#070B12] text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera on touch carousels */
