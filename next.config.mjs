@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['ffmpeg-static', 'bullmq', 'ioredis', 'node-cron', '@prisma/client', 'prisma'],
+  serverExternalPackages: ['ffmpeg-static', 'node-cron', '@prisma/client', 'prisma'],
   outputFileTracingIncludes: {
     '/api/**/*': ['./prisma/production.db'],
   },
