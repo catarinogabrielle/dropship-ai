@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#064E3B" />
+      <stop offset="50%" stop-color="#022C22" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="emeraldGlow" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#34D399" />
+      <stop offset="50%" stop-color="#10B981" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="16" fill="url(#bgGrad)" />
+  <rect x="2" y="2" width="60" height="60" rx="14" stroke="url(#emeraldGlow)" stroke-width="2.5" stroke-opacity="0.65" />
+
+  <path
+    d="M14 44C20 48 44 48 50 20"
+    stroke="url(#emeraldGlow)"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-dasharray="3 3"
+    opacity="0.45"
+  />
+  <path
+    d="M45 18L51 18L51 24"
+    stroke="#34D399"
+    stroke-width="2.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <path
+    d="M32 11V53"
+    stroke="url(#emeraldGlow)"
+    stroke-width="4.5"
+    stroke-linecap="round"
+  />
+  <path
+    d="M41 21.5C41 17.3579 36.9706 14 32 14C27.0294 14 23 17.3579 23 21.5C23 25.6421 27.0294 28 32 29.5C36.9706 31 41 33.3579 41 38C41 42.6421 36.9706 46 32 46C27.0294 46 23 42.6421 23 38"
+    stroke="#ECFDF5"
+    stroke-width="4.5"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <path
+    d="M49 10L50.5 13.5L54 15L50.5 16.5L49 20L47.5 16.5L44 15L47.5 13.5L49 10Z"
+    fill="#34D399"
+  />
+</svg>

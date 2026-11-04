@@ -232,9 +232,11 @@ export default function AutopilotDashboardPage() {
         <div className="p-5 space-y-5">
           {/* Logo e Subtítulo Claro */}
           <div className="flex items-center gap-3 pb-4 border-b border-slate-800">
-            <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40">
-              <DollarSign className="w-6 h-6 text-emerald-400" />
-            </div>
+            <img
+              src="/favicon.svg"
+              alt="US Dollar AI Autopilot"
+              className="w-11 h-11 rounded-xl shadow-md shadow-emerald-950/60 shrink-0"
+            />
             <div>
               <h1 className="text-base font-extrabold tracking-tight text-white">
                 Piloto Automático de Vendas em Dólar
