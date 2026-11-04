@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Video,
   Copy,
-  HelpCircle,
 } from 'lucide-react';
 import { CreativeData, ProductData } from '@/types/autopilot';
 
@@ -23,21 +22,21 @@ interface Module2CopywritingProps {
   onNavigateTab: (tab: number) => void;
 }
 
-const ANGLE_DESCRIPTIONS: Record<string, { title: string; subtitle: string }> = {
+const ANGLE_META: Record<string, { badge: string; title: string; subtitle: string }> = {
   PAS_DIRECT: {
-    title: 'Estilo 1: Direto na Dor e Solução (PAS_DIRECT)',
-    subtitle:
-      'Toca na dor principal do americano, mostra por que os métodos comuns falham e apresenta seu produto como solução imediata.',
+    badge: 'PAS • Direto na Dor',
+    title: 'Dor, Agitação e Mecanismo Único',
+    subtitle: 'Foca no problema principal e apresenta o produto como alívio imediato.',
   },
   UGC_STORYTELLING: {
-    title: 'Estilo 2: Depoimento Natural estilo TikTok/Reels (UGC_STORYTELLING)',
-    subtitle:
-      'Parece uma pessoa comum nos EUA contando como descobriu o produto e mudou de rotina. Converte muito em vídeo curto.',
+    badge: 'UGC • Depoimento Natural',
+    title: 'Relato em 1ª Pessoa (Estilo TikTok/Reels)',
+    subtitle: 'Simula um cliente americano contando como descobriu o produto.',
   },
   SHOCK_HOOK: {
-    title: 'Estilo 3: Quebra de Padrão nos Primeiros 3 Segundos (SHOCK_HOOK)',
-    subtitle:
-      'Começa com uma frase curiosa ou impactante que faz a pessoa parar de rolar o feed do Facebook, Instagram ou TikTok.',
+    badge: 'HOOK • Quebra de Padrão',
+    title: 'Gancho de Curiosidade nos 3s Iniciais',
+    subtitle: 'Ideal para parar o feed no Facebook, Instagram e TikTok Shop.',
   },
 };
 
@@ -50,13 +49,12 @@ export default function Module2Copywriting({
   const [selectedProductId, setSelectedProductId] = useState<string>(
     products[0]?.id || ''
   );
+  const [activeAngleFilter, setActiveAngleFilter] = useState<string>('ALL');
   const [generating, setGenerating] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedNoticeId, setSavedNoticeId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
-  // Estado local para edicao inline de cada criativo
   const [edits, setEdits] = useState<Record<string, Partial<CreativeData>>>({});
 
   useEffect(() => {
@@ -73,7 +71,7 @@ export default function Module2Copywriting({
 
   const handleGenerate = async () => {
     if (!selectedProductId) {
-      setError('Selecione um produto salvo na caixinha antes de gerar.');
+      setError('Selecione um produto antes de gerar as campanhas.');
       return;
     }
     setGenerating(true);
@@ -150,127 +148,127 @@ export default function Module2Copywriting({
     await onRefresh();
   };
 
+  const filteredCreatives = creatives.filter((c) => {
+    if (activeAngleFilter === 'ALL') return true;
+    return c.angle === activeAngleFilter;
+  });
+
   return (
-    <div className="space-y-6">
-      {/* Guia Explicativo para Iniciantes */}
-      <div className="rounded-2xl border border-emerald-500/30 bg-slate-900/90 p-5 space-y-3">
-        <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs uppercase">
-          <HelpCircle className="w-4 h-4" />
-          COMO USAR ESTA TELA (PASSO 2 — CRIAR OS ANÚNCIOS E ROTEIROS EM INGLÊS SEM FALAR INGLÊS)
+    <div className="space-y-5">
+      {/* BARRA DE COMANDO COMPACTA */}
+      <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="space-y-0.5">
+          <h2 className="text-base font-extrabold text-white flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+            Gerador de Copy & Roteiros Nativos (EUA)
+          </h2>
+          <p className="text-xs text-slate-400">
+            Gera 3 ângulos de venda em inglês americano (com tradução em português ao lado).
+          </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-300">
-          <div className="rounded-xl bg-slate-950 p-3.5 border border-slate-800">
-            <strong className="text-white block mb-1">
-              1️⃣ Escolha o produto e clique no botão verde:
-            </strong>
-            A Inteligência Artificial vai escrever <strong>3 campanhas completas em inglês nativo dos EUA</strong> baseadas no produto que você cadastrou na Aba 1.
-          </div>
-          <div className="rounded-xl bg-slate-950 p-3.5 border border-slate-800">
-            <strong className="text-white block mb-1">
-              2️⃣ Confira a Tradução em Português ao lado:
-            </strong>
-            Cada cartão mostra o texto em inglês (que vai para os americanos) e uma caixa com a <strong>Tradução Fiel em Português</strong> para você saber exatamente o que está escrito.
-          </div>
-          <div className="rounded-xl bg-slate-950 p-3.5 border border-slate-800">
-            <strong className="text-white block mb-1">
-              3️⃣ Copie para seus Anúncios ou Gere a Voz:
-            </strong>
-            Use os botões <strong>&ldquo;Copiar Texto&rdquo;</strong> para colar no seu anúncio do Facebook/Google ou clique em <strong>&ldquo;Ir para Fábrica de Vídeo&rdquo;</strong> para fazer a voz americana falar esse roteiro!
-          </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <select
+            value={selectedProductId}
+            onChange={(e) => setSelectedProductId(e.target.value)}
+            className="rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white min-w-[240px] focus:outline-none focus:border-emerald-500"
+          >
+            {products.length === 0 ? (
+              <option value="">Cadastre um produto na Aba 1 primeiro</option>
+            ) : (
+              products.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title} (US$ {p.priceUsd})
+                </option>
+              ))
+            )}
+          </select>
+
+          <button
+            onClick={handleGenerate}
+            disabled={generating || products.length === 0}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 text-xs font-extrabold text-white transition shadow-lg shadow-emerald-950/50 shrink-0"
+          >
+            {generating ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Gerando 3 Campanhas (~12s)...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                Gerar 3 Campanhas em Inglês
+              </>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Barra de Geração OpenAI Real */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div className="flex-1 space-y-1.5">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <Sparkles className="w-3.5 h-3.5" />
-              MÓDULO 2 • GERADOR AUTOMÁTICO DE TEXTOS DE VENDAS EM INGLÊS
-            </span>
-            <h2 className="text-xl font-extrabold text-white">
-              Criar Roteiros de Vídeo, Anúncios de Facebook e Títulos do Google Ads
-            </h2>
-            <p className="text-xs text-slate-400">
-              Selecione abaixo o produto que você salvou na Aba 1 e clique no botão verde:
-            </p>
-          </div>
+      {error && (
+        <div className="rounded-xl bg-red-950/60 border border-red-500/40 p-3 text-xs text-red-200 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3">
-            <div>
-              <label className="block text-xs font-bold text-white mb-1">
-                Qual produto você quer divulgar?
-              </label>
-              <select
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                className="rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-white min-w-[270px] focus:outline-none focus:border-emerald-500"
+      {/* FILTRO DE ÂNGULOS (SE HOUVER CRIATIVOS) */}
+      {creatives.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800">
+            {[
+              { id: 'ALL', label: `Todos (${creatives.length})` },
+              { id: 'PAS_DIRECT', label: '1. Direto na Dor (PAS)' },
+              { id: 'UGC_STORYTELLING', label: '2. Depoimento (UGC)' },
+              { id: 'SHOCK_HOOK', label: '3. Gancho Curioso (Hook)' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveAngleFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  activeAngleFilter === tab.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                }`}
               >
-                {products.length === 0 ? (
-                  <option value="">Nenhum produto salvo ainda na Aba 1</option>
-                ) : (
-                  products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title} (US$ {p.priceUsd})
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-
-            <button
-              onClick={handleGenerate}
-              disabled={generating || products.length === 0}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-2.5 text-sm font-extrabold text-white transition shadow-lg shadow-emerald-950/50"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Escrevendo 3 Campanhas em Inglês (~12s)...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Gerar 3 Campanhas em Inglês Agora
-                </>
-              )}
-            </button>
+                {tab.label}
+              </button>
+            ))}
           </div>
+
+          <button
+            onClick={() => onNavigateTab(3)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600/30 px-3.5 py-1.5 text-xs font-extrabold text-purple-300 transition"
+          >
+            <Video className="w-3.5 h-3.5" />
+            Ir para Aba 3 (Gerar Locução & Vídeo) →
+          </button>
         </div>
+      )}
 
-        {error && (
-          <div className="mt-4 rounded-xl bg-red-950/60 border border-red-500/40 p-3.5 text-xs text-red-200 flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Empty State se não houver criativos */}
+      {/* LISTA DE CAMPANHAS */}
       {creatives.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">
-          <FileText className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <h4 className="text-base font-bold text-white">
-            Nenhum roteiro ou anúncio gerado ainda
-          </h4>
-          <p className="text-xs text-slate-400 max-w-lg mx-auto mt-1 mb-4">
+        <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 p-10 text-center">
+          <FileText className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+          <h4 className="text-sm font-bold text-white">Nenhuma campanha gerada ainda</h4>
+          <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 mb-4">
             {products.length === 0
-              ? 'Você precisa primeiro cadastrar pelo menos 1 produto na Aba 1 para que a Inteligência Artificial saiba o que vender.'
-              : 'Clique no botão verde "Gerar 3 Campanhas em Inglês Agora" acima para criar seus textos!'}
+              ? 'Crie ou importe um produto no Passo 1 para liberar o gerador de copy.'
+              : 'Selecione seu produto acima e clique em "Gerar 3 Campanhas em Inglês".'}
           </p>
           {products.length === 0 && (
             <button
               onClick={() => onNavigateTab(1)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-xs font-bold text-white transition"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-bold text-white transition"
             >
-              Voltar para Aba 1 e Cadastrar Meu Primeiro Produto
+              Ir para o Passo 1 (Produtos)
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6">
-          {creatives.map((creative) => {
+        <div className="space-y-4">
+          {filteredCreatives.map((creative) => {
             let googleObj: { headlines?: string[]; descriptions?: string[] } = {
               headlines: [],
               descriptions: [],
@@ -279,9 +277,10 @@ export default function Module2Copywriting({
               googleObj = JSON.parse(getFieldVal(creative, 'googleHeadlinesJson') || '{}');
             } catch {}
 
-            const angleMeta = ANGLE_DESCRIPTIONS[creative.angle] || {
+            const angleMeta = ANGLE_META[creative.angle] || {
+              badge: creative.angle,
               title: creative.angle,
-              subtitle: 'Campanha gerada em inglês nativo americano.',
+              subtitle: 'Campanha em inglês americano.',
             };
 
             const fullVideoScript = `${getFieldVal(creative, 'hookEn')} ${getFieldVal(
@@ -292,298 +291,199 @@ export default function Module2Copywriting({
             return (
               <div
                 key={creative.id}
-                className="rounded-2xl border border-slate-800 bg-slate-900/85 p-6 space-y-5"
+                className="rounded-2xl border border-slate-800/90 bg-slate-900/75 p-5 space-y-4"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="px-3 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        {angleMeta.title}
-                      </span>
-                      <span className="text-xs text-slate-400">
-                        Produto: <strong className="text-white">{creative.product?.title}</strong>
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-400">{angleMeta.subtitle}</p>
+                {/* Cabeçalho do Card */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-800/80">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                      {angleMeta.badge}
+                    </span>
+                    <span className="text-sm font-extrabold text-white">
+                      {creative.product?.title}
+                    </span>
+                    <span className="text-xs text-slate-500 hidden md:inline">
+                      — {angleMeta.subtitle}
+                    </span>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() => onNavigateTab(3)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 px-4 py-2 text-xs font-extrabold text-white transition"
-                    >
-                      <Video className="w-4 h-4" />
-                      Transformar em Voz e Vídeo (Ir para Aba 3) →
-                    </button>
-
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => handleSaveInline(creative)}
                       disabled={savingId === creative.id}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 disabled:opacity-50 px-3.5 py-2 text-xs font-bold text-emerald-300 transition"
+                      className="inline-flex items-center gap-1 rounded-xl bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-bold text-emerald-300 transition"
                     >
                       {savingId === creative.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
                         <Save className="w-3.5 h-3.5" />
                       )}
-                      Salvar Alterações
+                      Salvar
                     </button>
 
                     <button
                       onClick={() => handleDeleteCreative(creative.id)}
-                      className="p-2 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-300 transition"
-                      title="Apagar esta campanha"
+                      className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-950/60 text-slate-400 hover:text-red-300 transition"
+                      title="Excluir campanha"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
 
                 {savedNoticeId === creative.id && (
-                  <div className="rounded-xl bg-emerald-950/50 border border-emerald-500/40 px-4 py-2.5 text-xs text-emerald-200 flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    Alterações salvas com sucesso no banco de dados!
+                  <div className="rounded-lg bg-emerald-950/50 border border-emerald-500/40 px-3 py-1.5 text-xs text-emerald-200 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    Salvo no banco de dados!
                   </div>
                 )}
 
-                {/* BLOCO 1: Roteiro Falado do Vídeo (Usado automaticamente na Aba 3) */}
-                <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-4 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div>
-                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-emerald-400">
-                        🎙️ PARTE 1: Fala do Vídeo em Inglês (A Voz Americana da Aba 3 vai ler isto)
-                      </h4>
-                      <p className="text-[11px] text-slate-400">
-                        Dividido em: Gancho Inicial (3 segundos) + Explicação do Produto + Chamada para Comprar.
-                      </p>
-                    </div>
+                {/* Roteiro de Vídeo Falado (3 Colunas Compactas) */}
+                <div className="rounded-xl bg-slate-950/90 border border-slate-800/90 p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-emerald-400">
+                      🎙️ Roteiro Falado para Vídeo (Usado na Aba 3)
+                    </span>
                     <button
                       type="button"
                       onClick={() =>
                         handleCopyText(fullVideoScript, `script_${creative.id}`)
                       }
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-bold text-white transition shrink-0"
+                      className="inline-flex items-center gap-1 rounded-lg bg-slate-800 hover:bg-slate-700 px-2.5 py-1 text-[11px] font-bold text-slate-200 transition"
                     >
-                      {copiedKey === `script_${creative.id}` ? (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                          Roteiro Copiado!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          Copiar Roteiro Completo
-                        </>
-                      )}
+                      <Copy className="w-3 h-3" />
+                      {copiedKey === `script_${creative.id}` ? 'Copiado!' : 'Copiar Roteiro'}
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-white mb-1">
-                        1. Início do Vídeo (Primeiros 3 Segundos)
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                        1. Hook (0–3s)
                       </label>
                       <textarea
-                        rows={3}
+                        rows={2}
                         value={getFieldVal(creative, 'hookEn')}
                         onChange={(e) => setFieldVal(creative.id, 'hookEn', e.target.value)}
-                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-xs font-bold text-white mb-1">
-                        2. Meio do Vídeo (História e Benefício)
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                        2. Corpo (História & Mecanismo)
                       </label>
                       <textarea
-                        rows={3}
+                        rows={2}
                         value={getFieldVal(creative, 'bodyEn')}
                         onChange={(e) => setFieldVal(creative.id, 'bodyEn', e.target.value)}
-                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-xs font-bold text-white mb-1">
-                        3. Final do Vídeo (Mandando Clicar no Link)
+                      <label className="block text-[11px] font-bold text-slate-400 mb-1">
+                        3. Chamada Final (CTA)
                       </label>
                       <textarea
-                        rows={3}
+                        rows={2}
                         value={getFieldVal(creative, 'ctaEn')}
                         onChange={(e) => setFieldVal(creative.id, 'ctaEn', e.target.value)}
-                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
+                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* BLOCO 2: Textos para colar no Facebook Ads, Google Ads e Tradução em Português */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-4 space-y-3">
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-blue-400">
-                      📢 PARTE 2: Textos para Colar no Facebook Ads & Instagram Ads
-                    </h4>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-white">
-                          Texto Principal do Anúncio (Primary Text)
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopyText(
-                              getFieldVal(creative, 'metaPrimaryText'),
-                              `meta_p_${creative.id}`
-                            )
-                          }
-                          className="inline-flex items-center gap-1 text-[11px] text-blue-300 hover:text-white"
-                        >
-                          <Copy className="w-3 h-3" />
-                          {copiedKey === `meta_p_${creative.id}` ? 'Copiado!' : 'Copiar'}
-                        </button>
-                      </div>
-                      <textarea
-                        rows={3}
-                        value={getFieldVal(creative, 'metaPrimaryText')}
-                        onChange={(e) =>
-                          setFieldVal(creative.id, 'metaPrimaryText', e.target.value)
+                {/* Meta Ads, Google Ads e Tradução em 2 Colunas Limpas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* Coluna Esquerda: Meta Ads */}
+                  <div className="rounded-xl bg-slate-950/90 border border-slate-800/90 p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-blue-400">
+                        📢 Facebook & Instagram Ads
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCopyText(
+                            getFieldVal(creative, 'metaPrimaryText'),
+                            `meta_p_${creative.id}`
+                          )
                         }
-                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      />
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-300 hover:text-white"
+                      >
+                        <Copy className="w-3 h-3" />
+                        {copiedKey === `meta_p_${creative.id}` ? 'Copiado!' : 'Copiar Texto'}
+                      </button>
                     </div>
 
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-white">
-                          Título do Botão no Facebook Ads (Headline)
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopyText(
-                              getFieldVal(creative, 'metaHeadline'),
-                              `meta_h_${creative.id}`
-                            )
-                          }
-                          className="inline-flex items-center gap-1 text-[11px] text-blue-300 hover:text-white"
-                        >
-                          <Copy className="w-3 h-3" />
-                          {copiedKey === `meta_h_${creative.id}` ? 'Copiado!' : 'Copiar'}
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        value={getFieldVal(creative, 'metaHeadline')}
-                        onChange={(e) =>
-                          setFieldVal(creative.id, 'metaHeadline', e.target.value)
-                        }
-                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      />
-                    </div>
+                    <textarea
+                      rows={3}
+                      value={getFieldVal(creative, 'metaPrimaryText')}
+                      onChange={(e) =>
+                        setFieldVal(creative.id, 'metaPrimaryText', e.target.value)
+                      }
+                      className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2 text-xs text-white"
+                    />
 
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="text-xs font-bold text-amber-300">
-                          Texto da Caixinha de Oferta Extra (Order Bump na Kiwify/Shopify)
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                          Headline (Título do Botão)
                         </label>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleCopyText(
-                              getFieldVal(creative, 'orderBumpCopyEn'),
-                              `bump_${creative.id}`
-                            )
+                        <input
+                          type="text"
+                          value={getFieldVal(creative, 'metaHeadline')}
+                          onChange={(e) =>
+                            setFieldVal(creative.id, 'metaHeadline', e.target.value)
                           }
-                          className="inline-flex items-center gap-1 text-[11px] text-amber-300 hover:text-white"
-                        >
-                          <Copy className="w-3 h-3" />
-                          {copiedKey === `bump_${creative.id}` ? 'Copiado!' : 'Copiar'}
-                        </button>
+                          className="w-full rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1.5 text-xs text-white"
+                        />
                       </div>
-                      <textarea
-                        rows={2}
-                        value={getFieldVal(creative, 'orderBumpCopyEn')}
-                        onChange={(e) =>
-                          setFieldVal(creative.id, 'orderBumpCopyEn', e.target.value)
-                        }
-                        className="w-full rounded-lg bg-slate-900 border border-slate-800 p-2.5 text-xs text-white focus:outline-none focus:border-emerald-500"
-                      />
+                      <div>
+                        <label className="block text-[10px] font-bold text-amber-300 mb-1">
+                          Order Bump (Checkout)
+                        </label>
+                        <input
+                          type="text"
+                          value={getFieldVal(creative, 'orderBumpCopyEn')}
+                          onChange={(e) =>
+                            setFieldVal(creative.id, 'orderBumpCopyEn', e.target.value)
+                          }
+                          className="w-full rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-1.5 text-xs text-white"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  {/* Google Ads + Tradução em Português */}
-                  <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-4 space-y-3">
-                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-cyan-400">
-                      🔍 PARTE 3: Títulos para Google Ads & Tradução em Português
-                    </h4>
-
-                    <div className="space-y-1.5 text-xs">
-                      <span className="text-slate-300 font-bold block">
-                        Títulos Curtos para Google Ads (Até 30 letras):
+                  {/* Coluna Direita: Tradução PT-BR + Google Ads */}
+                  <div className="rounded-xl bg-slate-950/90 border border-slate-800/90 p-3.5 space-y-2.5 flex flex-col justify-between">
+                    <div>
+                      <span className="text-xs font-extrabold text-emerald-300 block mb-1">
+                        🇧🇷 Tradução em Português (Para Conferência)
                       </span>
-                      {(googleObj.headlines || []).map((h, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"
-                        >
-                          <span className="text-white">{h}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-emerald-400 font-mono">
-                              {h.length}/30
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleCopyText(h, `gh_${creative.id}_${i}`)
-                              }
-                              className="text-[11px] text-cyan-300 hover:text-white"
-                            >
-                              {copiedKey === `gh_${creative.id}_${i}` ? 'Copiado' : 'Copiar'}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-
-                      <span className="text-slate-300 font-bold block pt-1">
-                        Descrições para Google Ads (Até 90 letras):
-                      </span>
-                      {(googleObj.descriptions || []).map((d, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center justify-between bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800"
-                        >
-                          <span className="text-white truncate mr-2">{d}</span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[10px] text-cyan-400 font-mono">
-                              {d.length}/90
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleCopyText(d, `gd_${creative.id}_${i}`)
-                              }
-                              className="text-[11px] text-cyan-300 hover:text-white"
-                            >
-                              {copiedKey === `gd_${creative.id}_${i}` ? 'Copiado' : 'Copiar'}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-800">
-                      <label className="block text-xs font-bold text-emerald-300 mb-1">
-                        🇧🇷 Tradução Completa em Português (Para você ler e entender o anúncio):
-                      </label>
                       <textarea
-                        rows={4}
+                        rows={3}
                         value={getFieldVal(creative, 'translationPt')}
                         onChange={(e) =>
                           setFieldVal(creative.id, 'translationPt', e.target.value)
                         }
-                        className="w-full rounded-lg bg-slate-900 border border-emerald-500/30 p-2.5 text-xs text-emerald-100 focus:outline-none focus:border-emerald-500"
+                        className="w-full rounded-lg bg-slate-900 border border-emerald-500/20 p-2 text-xs text-emerald-100"
                       />
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {(googleObj.headlines || []).slice(0, 3).map((h, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => handleCopyText(h, `gh_${creative.id}_${i}`)}
+                          className="inline-flex items-center gap-1 rounded-md bg-slate-900 border border-slate-800 px-2 py-1 text-[11px] text-slate-300 hover:text-white"
+                          title="Clique para copiar título do Google Ads"
+                        >
+                          <span className="truncate max-w-[150px]">{h}</span>
+                          <Copy className="w-2.5 h-2.5 text-cyan-400 shrink-0" />
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>

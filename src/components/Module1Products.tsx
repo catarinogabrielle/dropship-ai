@@ -11,12 +11,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
-  ArrowRight,
   Wand2,
   BookOpen,
   Download,
   Link as LinkIcon,
-  Award,
   ShoppingBag,
   FileText,
   ChevronDown,
@@ -34,35 +32,35 @@ interface Module1ProductsProps {
 
 const US_HOT_NICHES = [
   {
-    label: '🥗 Emagrecimento & Keto Reset (EUA)',
+    label: '🥗 Keto Reset 21 Dias',
     niche: 'Weight Loss & 21-Day Metabolic Keto Reset for American Women 35+',
     idea: '21-Day Cortisol & Belly Fat Reset Protocol (Digital Guide + Meal Plan)',
     price: '37.00',
     bump: '14.00',
   },
   {
-    label: '🐕 Adestramento de Cães em Casa',
+    label: '🐕 Adestramento Canino',
     niche: 'Dog Obedience & Stop Barking At-Home Training Protocol',
     idea: 'The 15-Minute Calm Dog Brain Training System for US Pet Owners',
     price: '29.00',
     bump: '12.00',
   },
   {
-    label: '🧘‍♀️ Alívio de Dor nas Costas & Nervo Ciático',
+    label: '🧘‍♀️ Alívio Nervo Ciático',
     niche: 'Sciatica & Lower Back Pain 10-Minute Daily Relief Routine',
     idea: 'Spine Release At-Home Mobility Protocol (No Equipment Needed)',
     price: '39.00',
     bump: '15.00',
   },
   {
-    label: '😴 Sono Profundo & Menopausa Natural',
+    label: '😴 Sono & Menopausa',
     niche: 'Natural Deep Sleep & Hormone Balance Protocol for Women 40+',
     idea: 'The 7-Night Deep Sleep & Night Sweat Relief Blueprint',
     price: '37.00',
     bump: '14.00',
   },
   {
-    label: '📦 Gadget Físico: Corretor Postural / Massageador Cervical',
+    label: '📦 Gadget Postura / Pescoço',
     niche: 'Smart Neck Massager & Posture Relief Device (US Dropshipping)',
     idea: 'Ergonomic Heated Neck & Shoulder Decompression Pillow',
     price: '59.90',
@@ -80,21 +78,15 @@ export default function Module1Products({
   const effectiveSegment =
     selectedSegment === 'ADS_SCALE' ? 'KIWIFY_GLOBAL' : selectedSegment;
 
-  // Alterna entre "GERADOR IA DE PRODUTO / AFILIADO" vs "COLAR LINK EXISTENTE"
   const [inputTab, setInputTab] = useState<'AI_GENERATOR' | 'URL_SCRAPER'>('AI_GENERATOR');
-
-  // Estado do Gerador IA de Produtos / Afiliados / Dropshipping
   const [genMode, setGenMode] = useState<'CREATE_EBOOK' | 'AFFILIATE_OFFER' | 'DROPSHIP_PRODUCT'>(
     'CREATE_EBOOK'
   );
   const [niche, setNiche] = useState(US_HOT_NICHES[0].niche);
   const [productIdea, setProductIdea] = useState(US_HOT_NICHES[0].idea);
   const [affiliateLink, setAffiliateLink] = useState('');
-
-  // Estado do Scraper de Link
   const [sourceUrl, setSourceUrl] = useState('');
 
-  // Estado Financeiro compartilhado com a Calculadora
   const [segment, setSegment] = useState<string>(effectiveSegment);
   const [priceUsd, setPriceUsd] = useState<string>('37.00');
   const [costUsd, setCostUsd] = useState<string>('0.00');
@@ -106,9 +98,9 @@ export default function Module1Products({
   const [error, setError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedDeliverableId, setExpandedDeliverableId] = useState<string | null>(null);
-  const [showWhereToFindGuide, setShowWhereToFindGuide] = useState<boolean>(true);
+  const [expandedDetailsId, setExpandedDetailsId] = useState<string | null>(null);
+  const [showWhereToFindGuide, setShowWhereToFindGuide] = useState<boolean>(false);
 
-  // Calculo em tempo real na interface
   const numPrice = parseFloat(priceUsd) || 0;
   const numCost = parseFloat(costUsd) || 0;
   const numBump = parseFloat(orderBumpUsd) || 0;
@@ -137,7 +129,6 @@ export default function Module1Products({
     ? 0
     : +(aovUsd * (feePercent / 100) + feeFixed).toFixed(2);
   const breakevenCpaUsd = +(aovUsd - numCost - numShipping - gatewayFeeUsd).toFixed(2);
-  const breakevenRoas = breakevenCpaUsd > 0 ? +(aovUsd / breakevenCpaUsd).toFixed(2) : 9.99;
   const targetCpaUsd = +(breakevenCpaUsd * 0.65).toFixed(2);
   const netProfitPerSaleUsd = +(breakevenCpaUsd - targetCpaUsd).toFixed(2);
   const salesPerDayRequired =
@@ -235,125 +226,133 @@ export default function Module1Products({
   };
 
   return (
-    <div className="space-y-8">
-      {/* GUIA COMPLETO: ONDE CONSEGUIR PRODUTOS PARA VENDER SEM ESTOQUE E GANHAR COMISSÃO EM DÓLAR */}
-      <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40 mb-1">
-              <Award className="w-3.5 h-3.5" />
-              NÃO TEM PRODUTO? VEJA AS 3 FORMAS DE VENDER SEM ESTOQUE E GANHAR EM DÓLAR
-            </span>
-            <h2 className="text-xl font-extrabold text-white">
-              Onde Conseguir Produtos para Ganhar Comissão em Dólar (Ou Criar o Seu em 1 Clique)
-            </h2>
+    <div className="space-y-6">
+      {/* BARRA COMPACTA: SELETOR DE MODO + BOTÃO DE SITES PARCEIROS */}
+      <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Segmented Toggle: Gerador IA vs Importar Link */}
+          <div className="inline-flex rounded-xl bg-slate-950 p-1 border border-slate-800">
+            <button
+              type="button"
+              onClick={() => setInputTab('AI_GENERATOR')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
+                inputTab === 'AI_GENERATOR'
+                  ? 'bg-emerald-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              Criar Produto / Oferta com IA
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputTab('URL_SCRAPER')}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${
+                inputTab === 'URL_SCRAPER'
+                  ? 'bg-cyan-600 text-white shadow'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <LinkIcon className="w-3.5 h-3.5" />
+              Importar Link Existente
+            </button>
           </div>
 
           <button
             type="button"
             onClick={() => setShowWhereToFindGuide(!showWhereToFindGuide)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs font-bold text-amber-300 hover:text-white shrink-0"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 px-3.5 py-2 text-xs font-bold text-amber-300 transition self-start md:self-auto"
           >
-            <BookOpen className="w-4 h-4" />
-            {showWhereToFindGuide ? 'Esconder Sites Parceiros' : 'Ver Sites Onde Pegar Produtos'}
+            <BookOpen className="w-3.5 h-3.5" />
+            {showWhereToFindGuide
+              ? 'Ocultar Sites Parceiros'
+              : 'Onde pegar produtos prontos? (Digistore24, ClickBank, CJ)'}
             {showWhereToFindGuide ? (
-              <ChevronUp className="w-4 h-4" />
+              <ChevronUp className="w-3.5 h-3.5" />
             ) : (
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown className="w-3.5 h-3.5" />
             )}
           </button>
         </div>
 
+        {/* GAVETA EXPANSÍVEL: ONDE PEGAR PRODUTOS */}
         {showWhereToFindGuide && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-            {/* Caminho 1: Afiliado Internacional */}
-            <div className="rounded-xl bg-slate-950/90 border border-amber-500/30 p-4 space-y-2.5 flex flex-col justify-between">
-              <div className="space-y-2">
-                <span className="px-2.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-extrabold text-[11px] inline-block">
-                  OPÇÃO A • GANHAR COMISSÃO (AFILIADO EUA)
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-slate-800/80 text-xs">
+            <div className="rounded-xl bg-slate-950/90 border border-amber-500/25 p-3.5 flex flex-col justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-amber-400">
+                  1. Afiliado EUA (50% a 85% comissão)
                 </span>
-                <h3 className="text-sm font-extrabold text-white">
-                  1. Vender Produtos Prontos na Digistore24 ou ClickBank (Comissão de 50% a 85% em Dólar)
-                </h3>
-                <p className="text-slate-300 leading-relaxed">
-                  Você se cadastra grátis, escolhe um produto que já existe nos EUA, clica em{' '}
-                  <strong>&ldquo;Promote Now&rdquo;</strong> e ganha seu link de comissão. Se o produto custa US$ 100 e paga 70%, você ganha <strong>US$ 70 (~R$ 380) por venda</strong> sem ter produto e sem entregar nada!
+                <p className="text-slate-300 mt-1 leading-relaxed">
+                  Cadastre-se grátis, escolha um produto validado nos EUA e ganhe até US$ 70 por venda sem precisar de estoque.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+              <div className="flex flex-wrap gap-2">
                 <a
                   href="https://www.digistore24.com/en/home/marketplace"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg bg-amber-600/20 border border-amber-500/40 hover:bg-amber-600/30 px-3 py-1.5 font-bold text-amber-300"
+                  className="inline-flex items-center gap-1 rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 font-bold text-amber-300 hover:bg-amber-500/25"
                 >
-                  Abrir Digistore24 Marketplace <ExternalLink className="w-3 h-3" />
+                  Digistore24 <ExternalLink className="w-3 h-3" />
                 </a>
                 <a
                   href="https://www.clickbank.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 font-bold text-slate-200"
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 font-bold text-slate-200 hover:bg-slate-700"
                 >
-                  Abrir ClickBank <ExternalLink className="w-3 h-3" />
+                  ClickBank <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>
 
-            {/* Caminho 2: Gerador IA de E-book Próprio */}
-            <div className="rounded-xl bg-slate-950/90 border border-emerald-500/30 p-4 space-y-2.5 flex flex-col justify-between">
-              <div className="space-y-2">
-                <span className="px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-extrabold text-[11px] inline-block">
-                  OPÇÃO B • CRIAR E-BOOK COM NOSSA IA (90% DE LUCRO)
+            <div className="rounded-xl bg-slate-950/90 border border-emerald-500/25 p-3.5 flex flex-col justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-emerald-400">
+                  2. E-book Próprio via IA (90% lucro)
                 </span>
-                <h3 className="text-sm font-extrabold text-white">
-                  2. Nossa IA Cria o E-book/Guia Completo em Inglês Agora para Você Vender na Kiwify!
-                </h3>
-                <p className="text-slate-300 leading-relaxed">
-                  Não quer dividir comissão com ninguém? Use o <strong>Gerador IA abaixo</strong>! Ele escreve o guia/protocolo em inglês completo em 15 segundos. Você baixa o arquivo, cadastra na <strong>Kiwify Internacional</strong> e fica com <strong>90% do valor em Dólar</strong>!
+                <p className="text-slate-300 mt-1 leading-relaxed">
+                  Gere o guia completo em inglês abaixo com 1 clique, baixe o arquivo e venda em Dólar na Kiwify Internacional.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+              <div>
                 <a
                   href="https://dashboard.kiwify.com.br/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-600/20 border border-emerald-500/40 hover:bg-emerald-600/30 px-3 py-1.5 font-bold text-emerald-300"
+                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 font-bold text-emerald-300 hover:bg-emerald-500/25"
                 >
-                  Abrir Kiwify (Cadastrar Produto) <ExternalLink className="w-3 h-3" />
+                  Abrir Kiwify <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>
 
-            {/* Caminho 3: Dropshipping Físico EUA */}
-            <div className="rounded-xl bg-slate-950/90 border border-cyan-500/30 p-4 space-y-2.5 flex flex-col justify-between">
-              <div className="space-y-2">
-                <span className="px-2.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-extrabold text-[11px] inline-block">
-                  OPÇÃO C • DROPSHIPPING FÍSICO SEM ESTOQUE
+            <div className="rounded-xl bg-slate-950/90 border border-cyan-500/25 p-3.5 flex flex-col justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-cyan-400">
+                  3. Dropshipping Físico nos EUA
                 </span>
-                <h3 className="text-sm font-extrabold text-white">
-                  3. Pegar Produtos Físicos em Galpões nos EUA (CJ Dropshipping & Zendrop)
-                </h3>
-                <p className="text-slate-300 leading-relaxed">
-                  Você escolhe um produto físico na <strong>CJ Dropshipping</strong> ou <strong>Zendrop</strong>, coloca na sua loja por US$ 59, e quando o americano compra de você, o fornecedor cobra US$ 15 e envia direto para a casa do cliente!
+                <p className="text-slate-300 mt-1 leading-relaxed">
+                  Venda produtos físicos na Shopify sem estoque; o fornecedor envia direto dos galpões nos EUA para o cliente.
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+              <div className="flex flex-wrap gap-2">
                 <a
                   href="https://cjdropshipping.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg bg-cyan-600/20 border border-cyan-500/40 hover:bg-cyan-600/30 px-3 py-1.5 font-bold text-cyan-300"
+                  className="inline-flex items-center gap-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-1 font-bold text-cyan-300 hover:bg-cyan-500/25"
                 >
-                  Abrir CJ Dropshipping US <ExternalLink className="w-3 h-3" />
+                  CJ Dropshipping <ExternalLink className="w-3 h-3" />
                 </a>
                 <a
                   href="https://www.zendrop.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1.5 font-bold text-slate-200"
+                  className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 font-bold text-slate-200 hover:bg-slate-700"
                 >
-                  Abrir Zendrop <ExternalLink className="w-3 h-3" />
+                  Zendrop <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>
@@ -361,72 +360,15 @@ export default function Module1Products({
         )}
       </div>
 
-      {/* SELETOR DE MODO: GERADOR IA DE PRODUTO DO ZERO vs COLAR LINK EXISTENTE */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setInputTab('AI_GENERATOR')}
-          className={`p-4 rounded-2xl border text-left transition flex items-start gap-3 ${
-            inputTab === 'AI_GENERATOR'
-              ? 'bg-emerald-500/15 border-emerald-500 text-white shadow-lg'
-              : 'bg-slate-900/70 border-slate-800 text-slate-400 hover:text-white'
-          }`}
-        >
-          <Wand2 className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="text-sm font-extrabold text-white">
-              OPÇÃO 1: Não tenho link — Quero que a IA Crie o Produto ou Oferta Agora
-            </div>
-            <p className="text-xs text-slate-300 mt-0.5">
-              Escolha um nicho campeão nos EUA e a IA cria o E-book/Protocolo inteiro em inglês (ou estrutura sua oferta de Afiliado/Dropshipping) com 1 clique!
-            </p>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setInputTab('URL_SCRAPER')}
-          className={`p-4 rounded-2xl border text-left transition flex items-start gap-3 ${
-            inputTab === 'URL_SCRAPER'
-              ? 'bg-cyan-500/15 border-cyan-500 text-white shadow-lg'
-              : 'bg-slate-900/70 border-slate-800 text-slate-400 hover:text-white'
-          }`}
-        >
-          <LinkIcon className="w-6 h-6 text-cyan-400 shrink-0 mt-0.5" />
-          <div>
-            <div className="text-sm font-extrabold text-white">
-              OPÇÃO 2: Já peguei um Link (Digistore24, ClickBank, CJ, Shopify ou Site)
-            </div>
-            <p className="text-xs text-slate-300 mt-0.5">
-              Cole o link da página do produto que você escolheu para o sistema ler a página inteira, extrair as dores e preparar seus anúncios!
-            </p>
-          </div>
-        </button>
-      </div>
-
-      {/* ÁREA PRINCIPAL: FORMULÁRIO ESCOLHIDO + CALCULADORA DE LUCRO EM TEMPO REAL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* GRID PRINCIPAL: FORMULÁRIO (7 COLUNAS) + CALCULADORA COMPACTA (5 COLUNAS) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {inputTab === 'AI_GENERATOR' ? (
           <form
             onSubmit={handleGenerateProductWithAi}
-            className="lg:col-span-7 rounded-2xl border border-emerald-500/40 bg-slate-900/85 p-6 space-y-4"
+            className="lg:col-span-7 rounded-2xl border border-slate-800/90 bg-slate-900/60 p-5 space-y-4"
           >
-            <div className="flex items-center gap-2.5 pb-3 border-b border-slate-800">
-              <div className="p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/40">
-                <Sparkles className="w-5 h-5 text-emerald-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-white">
-                  Gerador IA de Produtos & Ofertas em Dólar (Sem Estoque)
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Escolha abaixo como você quer ganhar dinheiro com este produto:
-                </p>
-              </div>
-            </div>
-
-            {/* Escolha dos 3 modelos sem estoque */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {/* Seletor de Modalidade */}
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -435,13 +377,13 @@ export default function Module1Products({
                   setCostUsd('0.00');
                   setShippingUsd('0.00');
                 }}
-                className={`p-3 rounded-xl border text-left text-xs transition ${
+                className={`p-2.5 rounded-xl border text-left text-xs transition ${
                   genMode === 'CREATE_EBOOK'
-                    ? 'bg-emerald-500/20 border-emerald-500 text-white font-bold'
-                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                    ? 'bg-emerald-500/15 border-emerald-500/60 text-white font-bold'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                📘 1. Criar E-book/Protocolo Próprio (90% Lucro na Kiwify)
+                📘 E-book Próprio (90%)
               </button>
 
               <button
@@ -454,13 +396,13 @@ export default function Module1Products({
                   setCostUsd('0.00');
                   setShippingUsd('0.00');
                 }}
-                className={`p-3 rounded-xl border text-left text-xs transition ${
+                className={`p-2.5 rounded-xl border text-left text-xs transition ${
                   genMode === 'AFFILIATE_OFFER'
-                    ? 'bg-amber-500/20 border-amber-500 text-white font-bold'
-                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                    ? 'bg-amber-500/15 border-amber-500/60 text-white font-bold'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                🤝 2. Vender como Afiliado (Ganhar Comissão ClickBank/Digistore)
+                🤝 Afiliado EUA (Comissão)
               </button>
 
               <button
@@ -473,22 +415,22 @@ export default function Module1Products({
                   setCostUsd('14.50');
                   setShippingUsd('4.50');
                 }}
-                className={`p-3 rounded-xl border text-left text-xs transition ${
+                className={`p-2.5 rounded-xl border text-left text-xs transition ${
                   genMode === 'DROPSHIP_PRODUCT'
-                    ? 'bg-cyan-500/20 border-cyan-500 text-white font-bold'
-                    : 'bg-slate-950 border-slate-800 text-slate-400'
+                    ? 'bg-cyan-500/15 border-cyan-500/60 text-white font-bold'
+                    : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                📦 3. Dropshipping Físico EUA (Fornecedor CJ/Zendrop)
+                📦 Dropshipping Físico
               </button>
             </div>
 
-            {/* Botões de Nichos Prontos que Mais Vendem nos EUA */}
-            <div className="space-y-1.5">
-              <span className="text-xs font-bold text-emerald-300 block">
-                🔥 Clique em uma ideia campeã nos EUA abaixo (ou escreva a sua):
+            {/* Pílulas de Nichos Prontos */}
+            <div>
+              <span className="text-[11px] font-bold text-slate-400 block mb-1.5">
+                Sugestões prontas de alta conversão nos EUA (clique para preencher):
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {US_HOT_NICHES.map((item, idx) => (
                   <button
                     key={idx}
@@ -499,7 +441,7 @@ export default function Module1Products({
                       setPriceUsd(item.price);
                       setOrderBumpUsd(item.bump);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition"
+                    className="px-2.5 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] font-semibold text-slate-300 transition"
                   >
                     {item.label}
                   </button>
@@ -509,53 +451,51 @@ export default function Module1Products({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Nicho / Mercado nos EUA
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Nicho / Público nos EUA
                 </label>
                 <input
                   type="text"
                   required
                   value={niche}
                   onChange={(e) => setNiche(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Nome ou Ideia do Produto / Oferta
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Nome ou Ideia da Oferta
                 </label>
                 <input
                   type="text"
                   required
                   value={productIdea}
                   onChange={(e) => setProductIdea(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
             </div>
 
             {genMode === 'AFFILIATE_OFFER' && (
               <div>
-                <label className="block text-xs font-bold text-amber-300 mb-1">
-                  Seu Link de Afiliado da Digistore24 / ClickBank / Kiwify (Opcional — pode colocar depois)
+                <label className="block text-[11px] font-bold text-amber-300 mb-1">
+                  Link de Afiliado (Digistore24 / ClickBank / Kiwify — opcional)
                 </label>
                 <input
                   type="url"
                   value={affiliateLink}
                   onChange={(e) => setAffiliateLink(e.target.value)}
-                  placeholder="Ex: https://www.digistore24.com/redir/123456/seu_usuario/"
-                  className="w-full rounded-xl bg-slate-950 border border-amber-500/40 px-3.5 py-2 text-xs text-white placeholder-slate-600"
+                  placeholder="https://www.digistore24.com/redir/..."
+                  className="w-full rounded-xl bg-slate-950 border border-amber-500/40 px-3 py-2 text-xs text-white placeholder-slate-600"
                 />
               </div>
             )}
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  {genMode === 'AFFILIATE_OFFER'
-                    ? 'Sua Comissão (US$)'
-                    : 'Preço Venda (US$)'}
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  {genMode === 'AFFILIATE_OFFER' ? 'Comissão (US$)' : 'Preço (US$)'}
                 </label>
                 <input
                   type="number"
@@ -563,52 +503,52 @@ export default function Module1Products({
                   required
                   value={priceUsd}
                   onChange={(e) => setPriceUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Extra Checkout (US$)
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Order Bump (US$)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={orderBumpUsd}
                   onChange={(e) => setOrderBumpUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Custo Fornecedor (US$)
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Custo Prod. (US$)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={costUsd}
                   onChange={(e) => setCostUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Meta Mensal (US$)
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Meta Mês (US$)
                 </label>
                 <input
                   type="number"
                   step="100"
                   value={monthlyProfitGoalUsd}
                   onChange={(e) => setMonthlyProfitGoalUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
             </div>
 
             {error && (
-              <div className="rounded-xl bg-red-950/60 border border-red-500/40 p-3.5 text-xs text-red-200 flex items-start gap-2">
+              <div className="rounded-xl bg-red-950/60 border border-red-500/40 p-3 text-xs text-red-200 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -617,21 +557,21 @@ export default function Module1Products({
             <button
               type="submit"
               disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-3.5 text-sm font-extrabold text-white transition shadow-lg shadow-emerald-950/50"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-5 py-3 text-xs font-extrabold text-white transition shadow-lg shadow-emerald-950/50"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Criando Produto Completo em Inglês no GPT-4o (~12s)...
+                  Gerando Produto & Inteligência com GPT-4o (~12s)...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
                   {genMode === 'CREATE_EBOOK'
-                    ? 'Criar Meu E-book/Protocolo Completo em Inglês & Salvar no Sistema'
+                    ? 'Gerar E-book Completo em Inglês & Salvar'
                     : genMode === 'AFFILIATE_OFFER'
-                    ? 'Estruturar Oferta de Afiliado em Dólar & Salvar no Sistema'
-                    : 'Estruturar Produto de Dropshipping EUA & Salvar no Sistema'}
+                    ? 'Estruturar Oferta de Afiliado & Salvar'
+                    : 'Estruturar Produto Dropshipping & Salvar'}
                 </>
               )}
             </button>
@@ -639,40 +579,26 @@ export default function Module1Products({
         ) : (
           <form
             onSubmit={handleIngestUrlProduct}
-            className="lg:col-span-7 rounded-2xl border border-cyan-500/40 bg-slate-900/85 p-6 space-y-4"
+            className="lg:col-span-7 rounded-2xl border border-slate-800/90 bg-slate-900/60 p-5 space-y-4"
           >
-            <div className="flex items-center gap-2.5 pb-3 border-b border-slate-800">
-              <div className="p-2 rounded-lg bg-cyan-500/20 border border-cyan-500/40">
-                <Globe className="w-5 h-5 text-cyan-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-extrabold text-white">
-                  Importar Link de Produto (Digistore24, ClickBank, CJ Dropshipping ou Loja)
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Cole o link da página de vendas do produto para o sistema extrair tudo automaticamente:
-                </p>
-              </div>
-            </div>
-
             <div>
               <label className="block text-xs font-bold text-white mb-1">
-                1. Cole aqui o Link (URL) da Página do Produto ou Oferta de Afiliado
+                URL da Página do Produto (Digistore24, ClickBank, CJ, Shopify ou VSL)
               </label>
               <input
                 type="url"
                 required
                 value={sourceUrl}
                 onChange={(e) => setSourceUrl(e.target.value)}
-                placeholder="Ex: https://www.digistore24.com/... ou link do produto na CJ / Shopify"
-                className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
+                placeholder="https://..."
+                className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500"
               />
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Preço / Comissão (US$)
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Preço / Comissão ($)
                 </label>
                 <input
                   type="number"
@@ -680,52 +606,52 @@ export default function Module1Products({
                   required
                   value={priceUsd}
                   onChange={(e) => setPriceUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Extra Checkout (US$)
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Order Bump ($)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={orderBumpUsd}
                   onChange={(e) => setOrderBumpUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Custo Fornecedor (US$)
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Custo Fornecedor ($)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={costUsd}
                   onChange={(e) => setCostUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-white mb-1">
-                  Frete EUA (US$)
+                <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                  Frete EUA ($)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   value={shippingUsd}
                   onChange={(e) => setShippingUsd(e.target.value)}
-                  className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-sm text-white"
+                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white"
                 />
               </div>
             </div>
 
             {error && (
-              <div className="rounded-xl bg-red-950/60 border border-red-500/40 p-3.5 text-xs text-red-200 flex items-start gap-2">
+              <div className="rounded-xl bg-red-950/60 border border-red-500/40 p-3 text-xs text-red-200 flex items-start gap-2">
                 <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
                 <span>{error}</span>
               </div>
@@ -734,134 +660,114 @@ export default function Module1Products({
             <button
               type="submit"
               disabled={loading}
-              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-5 py-3.5 text-sm font-extrabold text-white transition"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-5 py-3 text-xs font-extrabold text-white transition"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Lendo o Link e Extraindo Inteligência no GPT-4o...
+                  Extraindo Página & Analisando no GPT-4o...
                 </>
               ) : (
                 <>
                   <Globe className="w-4 h-4" />
-                  Importar Link, Analisar com IA & Salvar Produto
+                  Importar Link & Salvar Produto
                 </>
               )}
             </button>
           </form>
         )}
 
-        {/* Calculadora Explicada em Linguagem Simples (USD & BRL) */}
-        <div className="lg:col-span-5 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 flex flex-col justify-between space-y-4">
+        {/* Simulador Financeiro Compacto */}
+        <div className="lg:col-span-5 rounded-2xl border border-slate-800/90 bg-slate-900/60 p-5 flex flex-col justify-between space-y-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Calculator className="w-5 h-5 text-emerald-400" />
-              <h3 className="text-base font-extrabold text-white">
-                Quanto Você Ganha por Venda (Em Dólar e Real)
-              </h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Calculator className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-sm font-extrabold text-white">Simulador de Lucro por Venda</h3>
+              </div>
+              <span className="text-[11px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                US$ 1 = R$ {exchangeRateBrl.toFixed(2)}
+              </span>
             </div>
-            <p className="text-xs text-slate-400 mb-4">
-              Câmbio Comercial ao vivo:{' '}
-              <strong className="text-emerald-300">
-                1 Dólar = R$ {exchangeRateBrl.toFixed(2)}
-              </strong>
-            </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="rounded-xl bg-slate-950 border border-slate-800 p-3.5">
-                <span className="text-xs font-bold text-slate-300 block">
-                  💰 Valor por Venda / Comissão
-                </span>
-                <span className="text-xl font-extrabold text-white mt-0.5 block">
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-xl bg-slate-950 border border-slate-800/90 p-3">
+                <span className="text-[11px] text-slate-400 block">Faturamento / Venda</span>
+                <span className="text-base font-extrabold text-white mt-0.5 block">
                   US$ {aovUsd.toFixed(2)}
                 </span>
-                <span className="text-xs text-emerald-400 font-semibold block">
-                  = R$ {(aovUsd * exchangeRateBrl).toFixed(2)}
+                <span className="text-[11px] text-emerald-400 font-semibold">
+                  R$ {(aovUsd * exchangeRateBrl).toFixed(2)}
                 </span>
               </div>
 
-              <div className="rounded-xl bg-slate-950 border border-slate-800 p-3.5">
-                <span className="text-xs font-bold text-slate-300 block">
-                  🏦 Taxa Plataforma ({feePercent}%)
-                </span>
-                <span className="text-xl font-extrabold text-amber-400 mt-0.5 block">
+              <div className="rounded-xl bg-slate-950 border border-slate-800/90 p-3">
+                <span className="text-[11px] text-slate-400 block">Taxa ({feePercent}%)</span>
+                <span className="text-base font-extrabold text-amber-400 mt-0.5 block">
                   -US$ {gatewayFeeUsd.toFixed(2)}
                 </span>
-                <span className="text-xs text-amber-300/80 block">
-                  = -R$ {(gatewayFeeUsd * exchangeRateBrl).toFixed(2)}
+                <span className="text-[11px] text-slate-500">
+                  -R$ {(gatewayFeeUsd * exchangeRateBrl).toFixed(2)}
                 </span>
               </div>
 
-              <div className="rounded-xl bg-slate-950 border border-slate-800 p-3.5">
-                <span className="text-xs font-bold text-slate-300 block">
-                  🛑 Sobram Antes do Anúncio
-                </span>
-                <span className="text-xl font-extrabold text-emerald-400 mt-0.5 block">
+              <div className="rounded-xl bg-slate-950 border border-slate-800/90 p-3">
+                <span className="text-[11px] text-slate-400 block">Teto p/ Anúncio (CPA)</span>
+                <span className="text-base font-extrabold text-emerald-400 mt-0.5 block">
                   US$ {breakevenCpaUsd.toFixed(2)}
                 </span>
-                <span className="text-xs text-slate-400 block">
-                  = R$ {(breakevenCpaUsd * exchangeRateBrl).toFixed(2)}
+                <span className="text-[11px] text-slate-500">
+                  R$ {(breakevenCpaUsd * exchangeRateBrl).toFixed(2)}
                 </span>
               </div>
 
-              <div className="rounded-xl bg-slate-950 border border-cyan-500/30 p-3.5">
-                <span className="text-xs font-bold text-cyan-300 block">
-                  🎯 Seu Lucro Limpo (Pagando Anúncio)
+              <div className="rounded-xl bg-slate-950 border border-cyan-500/30 p-3">
+                <span className="text-[11px] text-cyan-300 font-semibold block">
+                  Lucro Líquido / Venda
                 </span>
-                <span className="text-xl font-extrabold text-cyan-400 mt-0.5 block">
+                <span className="text-base font-extrabold text-cyan-400 mt-0.5 block">
                   US$ {netProfitPerSaleUsd.toFixed(2)}
                 </span>
-                <span className="text-xs text-emerald-300 font-bold block">
-                  = R$ {(netProfitPerSaleUsd * exchangeRateBrl).toFixed(2)} limpos/venda
+                <span className="text-[11px] text-emerald-300 font-bold">
+                  R$ {(netProfitPerSaleUsd * exchangeRateBrl).toFixed(2)} limpos
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="rounded-xl bg-emerald-950/50 border border-emerald-500/40 p-4 space-y-1.5">
-            <div className="flex items-center justify-between text-xs text-emerald-200">
-              <span>Sua Meta Mensal:</span>
-              <strong className="text-white">
-                US$ {numGoalUsd.toLocaleString('en-US')} (R${' '}
+          <div className="rounded-xl bg-emerald-950/40 border border-emerald-500/30 p-3.5 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] text-emerald-200 block">
+                Para lucrar <strong>US$ {numGoalUsd.toLocaleString('en-US')}/mês</strong> (R${' '}
                 {(numGoalUsd * exchangeRateBrl).toLocaleString('pt-BR', {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
+                  maximumFractionDigits: 0,
                 })}
-                /mês)
-              </strong>
+                ):
+              </span>
             </div>
-            <div className="flex items-center justify-between text-xs text-emerald-300 pt-1 border-t border-emerald-500/20">
-              <span>Vendas por dia necessárias:</span>
-              <strong className="text-sm text-white bg-emerald-600/40 px-2.5 py-0.5 rounded-lg">
-                Apenas {salesPerDayRequired} vendas/dia
-              </strong>
-            </div>
+            <span className="text-xs font-extrabold text-white bg-emerald-600/50 border border-emerald-400/40 px-2.5 py-1 rounded-lg shrink-0">
+              {salesPerDayRequired} vendas/dia
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Lista de Produtos Reais Salvos no Banco de Dados */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
-            <Package className="w-5 h-5 text-emerald-400" />
-            Meus Produtos Prontos para Vender ({products.length})
-          </h3>
-        </div>
+      {/* LISTA DE PRODUTOS SALVOS */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-extrabold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+          <Package className="w-4 h-4 text-emerald-400" />
+          Produtos Cadastrados ({products.length})
+        </h3>
 
         {products.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-10 text-center">
-            <ShoppingBag className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-            <h4 className="text-base font-bold text-white">
-              Você ainda não gerou nem importou nenhum produto
-            </h4>
-            <p className="text-xs text-slate-400 max-w-lg mx-auto mt-1">
-              Basta clicar em uma das ideias prontas no quadro acima e apertar o botão verde{' '}
-              <strong>&ldquo;Criar Meu E-book/Protocolo Completo em Inglês & Salvar no Sistema&rdquo;</strong>!
+          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 p-8 text-center">
+            <ShoppingBag className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+            <p className="text-xs text-slate-400">
+              Nenhum produto salvo ainda. Use o gerador acima para criar seu primeiro produto em segundos.
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {products.map((prod) => {
               let avatar: any = {};
               let pains: any[] = [];
@@ -875,193 +781,146 @@ export default function Module1Products({
               const prodAov = +(prod.priceUsd + prod.orderBumpUsd).toFixed(2);
               const prodNetPerSale = +(prod.breakevenCpaUsd - prod.targetCpaUsd).toFixed(2);
               const hasDeliverable = Boolean(avatar.deliverableContentMarkdown);
-              const isExpanded = expandedDeliverableId === prod.id;
+              const isEbookExpanded = expandedDeliverableId === prod.id;
+              const isDetailsExpanded = expandedDetailsId === prod.id;
 
               return (
                 <div
                   key={prod.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 space-y-4"
+                  className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-3"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                    <div>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                           {avatar.productCreationMode === 'AFFILIATE_OFFER'
-                            ? 'AFILIADO EM DÓLAR'
+                            ? 'AFILIADO EUA'
                             : avatar.productCreationMode === 'CREATE_EBOOK'
-                            ? 'PRODUTO PRÓPRIO GERADO PELA IA'
+                            ? 'E-BOOK IA'
                             : prod.segment}
                         </span>
-                        <a
-                          href={prod.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-slate-400 hover:text-emerald-400 inline-flex items-center gap-1 truncate max-w-md"
-                        >
-                          {prod.sourceUrl}
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
+                        <span className="text-xs font-bold text-emerald-400">
+                          US$ {prodAov.toFixed(2)} • Lucro: R${' '}
+                          {(prodNetPerSale * exchangeRateBrl).toFixed(2)}/venda
+                        </span>
                       </div>
-                      <h4 className="text-lg font-extrabold text-white">
-                        {prod.title}{' '}
-                        {avatar.titlePt && (
-                          <span className="text-sm font-normal text-slate-400">
-                            ({avatar.titlePt})
-                          </span>
-                        )}
+                      <h4 className="text-base font-extrabold text-white truncate">
+                        {prod.title}
                       </h4>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
                       {hasDeliverable && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleDownloadDeliverable(
-                              prod.title,
-                              avatar.deliverableContentMarkdown
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 px-3.5 py-2 text-xs font-extrabold text-amber-300 transition"
-                        >
-                          <Download className="w-4 h-4" />
-                          Baixar Arquivo do E-book (.MD / Texto)
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedDeliverableId(isEbookExpanded ? null : prod.id)
+                            }
+                            className="inline-flex items-center gap-1 rounded-xl bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-bold text-amber-300 transition"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            {isEbookExpanded ? 'Ocultar E-book' : 'Ler E-book'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDownloadDeliverable(
+                                prod.title,
+                                avatar.deliverableContentMarkdown
+                              )
+                            }
+                            className="inline-flex items-center gap-1 rounded-xl bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 px-3 py-1.5 text-xs font-bold text-amber-300 transition"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            Baixar (.MD)
+                          </button>
+                        </>
                       )}
 
                       <button
-                        onClick={() => onNavigateTab(2)}
-                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-extrabold text-white transition"
+                        type="button"
+                        onClick={() =>
+                          setExpandedDetailsId(isDetailsExpanded ? null : prod.id)
+                        }
+                        className="inline-flex items-center gap-1 rounded-xl bg-slate-800 hover:bg-slate-700 px-3 py-1.5 text-xs font-semibold text-slate-300 transition"
                       >
-                        <Sparkles className="w-4 h-4" />
-                        Criar Anúncios para este Produto (Ir para Aba 2) →
+                        {isDetailsExpanded ? 'Menos detalhes' : 'Público & Dores'}
+                        {isDetailsExpanded ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => onNavigateTab(2)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-1.5 text-xs font-extrabold text-white transition"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Criar Anúncios →
                       </button>
 
                       <button
                         onClick={() => handleDelete(prod.id)}
                         disabled={deletingId === prod.id}
-                        className="p-2 rounded-lg bg-slate-800 hover:bg-red-950/60 text-slate-400 hover:text-red-300 transition"
-                        title="Excluir produto do banco"
+                        className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-red-950/60 text-slate-400 hover:text-red-300 transition"
+                        title="Excluir produto"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
 
-                  {/* Instrução de Onde Hospedar / Vender */}
-                  {avatar.whereToFindOrHostPt && (
-                    <div className="rounded-xl bg-emerald-950/40 border border-emerald-500/30 p-3.5 text-xs text-emerald-200">
-                      <strong>📍 Como colocar este produto para vender:</strong>{' '}
-                      {avatar.whereToFindOrHostPt}
-                    </div>
-                  )}
-
-                  {/* Conteúdo Completo do E-book Gerado pela IA (Expansível) */}
-                  {hasDeliverable && (
-                    <div className="rounded-xl bg-slate-950 border border-amber-500/30 p-4 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 text-amber-300 font-extrabold text-xs">
-                          <FileText className="w-4 h-4" />
-                          CONTEÚDO COMPLETO DO SEU PRODUTO DIGITAL EM INGLÊS (PRONTO PARA VENDER NA KIWIFY)
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedDeliverableId(isExpanded ? null : prod.id)
-                          }
-                          className="text-xs font-bold text-cyan-300 hover:underline inline-flex items-center gap-1"
-                        >
-                          {isExpanded
-                            ? 'Recolher Conteúdo do E-book'
-                            : '📖 Clique para Ler o E-book/Protocolo Gerado'}
-                        </button>
+                  {/* E-book Gerado (Expansível) */}
+                  {hasDeliverable && isEbookExpanded && (
+                    <div className="rounded-xl bg-slate-950 border border-amber-500/30 p-3.5 space-y-2">
+                      <div className="text-[11px] font-bold text-amber-300">
+                        CONTEÚDO COMPLETO DO E-BOOK EM INGLÊS:
                       </div>
-
-                      {isExpanded && (
-                        <pre className="whitespace-pre-wrap text-xs text-slate-200 bg-slate-900 p-4 rounded-xl border border-slate-800 max-h-96 overflow-y-auto font-sans leading-relaxed">
-                          {avatar.deliverableContentMarkdown}
-                        </pre>
-                      )}
+                      <pre className="whitespace-pre-wrap text-xs text-slate-200 bg-slate-900 p-3.5 rounded-lg border border-slate-800 max-h-80 overflow-y-auto font-sans leading-relaxed">
+                        {avatar.deliverableContentMarkdown}
+                      </pre>
                     </div>
                   )}
 
-                  {/* Métricas Financeiras Reais do Produto */}
-                  <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
-                    <div className="rounded-lg bg-slate-950 p-3 border border-slate-800/80">
-                      <span className="text-[11px] text-slate-400 block">Valor / Comissão</span>
-                      <span className="text-sm font-bold text-white">${prodAov.toFixed(2)}</span>
+                  {/* Detalhes de Inteligência e Métricas (Expansível) */}
+                  {isDetailsExpanded && (
+                    <div className="pt-2 border-t border-slate-800/80 space-y-3">
+                      {avatar.whereToFindOrHostPt && (
+                        <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/25 p-3 text-xs text-emerald-200">
+                          <strong>📍 Como vender:</strong> {avatar.whereToFindOrHostPt}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                        <div className="rounded-xl bg-slate-950 p-3 border border-slate-800">
+                          <span className="font-bold text-emerald-400 block mb-1">
+                            👤 Público Comprador (EUA)
+                          </span>
+                          <p className="text-slate-300">{avatar.demographics || 'N/A'}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-950 p-3 border border-slate-800">
+                          <span className="font-bold text-cyan-400 block mb-1">
+                            🔑 Mecanismo Único
+                          </span>
+                          <p className="text-slate-300">{prod.uniqueMechanism}</p>
+                        </div>
+                        <div className="rounded-xl bg-slate-950 p-3 border border-slate-800">
+                          <span className="font-bold text-rose-400 block mb-1">
+                            🔥 Principais Dores
+                          </span>
+                          <ul className="space-y-1 text-slate-300">
+                            {pains.slice(0, 3).map((p: any, idx: number) => (
+                              <li key={idx} className="flex items-start gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-rose-400 shrink-0 mt-0.5" />
+                                <span>{typeof p === 'string' ? p : p.painEn}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
                     </div>
-                    <div className="rounded-lg bg-slate-950 p-3 border border-slate-800/80">
-                      <span className="text-[11px] text-slate-400 block">Taxa Plataforma</span>
-                      <span className="text-sm font-bold text-amber-400">
-                        {prod.gatewayFeePercent}% + ${prod.gatewayFeeFixedUsd.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="rounded-lg bg-slate-950 p-3 border border-slate-800/80">
-                      <span className="text-[11px] text-slate-400 block">Máximo p/ Anúncio</span>
-                      <span className="text-sm font-bold text-emerald-400">
-                        ${prod.breakevenCpaUsd.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="rounded-lg bg-slate-950 p-3 border border-slate-800/80">
-                      <span className="text-[11px] text-slate-400 block">ROAS Mínimo</span>
-                      <span className="text-sm font-bold text-white">{prod.breakevenRoas}x</span>
-                    </div>
-                    <div className="rounded-lg bg-slate-950 p-3 border border-slate-800/80">
-                      <span className="text-[11px] text-slate-400 block">Gasto Ideal/Venda</span>
-                      <span className="text-sm font-bold text-cyan-400">
-                        ${prod.targetCpaUsd.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="rounded-lg bg-slate-950 p-3 border border-slate-800/80">
-                      <span className="text-[11px] text-slate-400 block">Lucro Limpo em R$</span>
-                      <span className="text-sm font-bold text-emerald-300">
-                        R$ {(prodNetPerSale * exchangeRateBrl).toFixed(2)}/venda
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Inteligência Extraída pelo GPT-4o */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                    <div className="rounded-xl bg-slate-950/90 border border-slate-800 p-4 space-y-2">
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                        👤 Quem Compra nos EUA
-                      </h5>
-                      <p className="text-xs text-slate-300">
-                        <strong>Perfil:</strong> {avatar.demographics || 'N/A'}
-                      </p>
-                      <p className="text-xs text-slate-300">
-                        <strong>Desejos:</strong> {avatar.psychographics || 'N/A'}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-950/90 border border-slate-800 p-4 space-y-2">
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-cyan-400">
-                        🔑 Mecanismo Único da Oferta
-                      </h5>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        {prod.uniqueMechanism || 'Extraído da oferta.'}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-950/90 border border-slate-800 p-4 space-y-2">
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                        🔥 5 Dores Reais do Cliente (EN / PT)
-                      </h5>
-                      <ul className="space-y-1.5 text-xs text-slate-300">
-                        {pains.map((p: any, idx: number) => (
-                          <li key={idx} className="flex items-start gap-1.5">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                            <span>
-                              {typeof p === 'string'
-                                ? p
-                                : `${p.painEn} — (${p.painPt || ''})`}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
