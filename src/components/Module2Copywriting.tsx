@@ -171,7 +171,7 @@ export default function Module2Copywriting({
           <select
             value={selectedProductId}
             onChange={(e) => setSelectedProductId(e.target.value)}
-            className="rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white min-w-[240px] focus:outline-none focus:border-emerald-500"
+            className="w-full sm:w-auto sm:min-w-[240px] rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
           >
             {products.length === 0 ? (
               <option value="">Cadastre um produto na Aba 1 primeiro</option>
@@ -187,7 +187,7 @@ export default function Module2Copywriting({
           <button
             onClick={handleGenerate}
             disabled={generating || products.length === 0}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2 text-xs font-extrabold text-white transition shadow-lg shadow-emerald-950/50 shrink-0"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-4 py-2.5 sm:py-2 text-xs font-extrabold text-white transition shadow-lg shadow-emerald-950/50 shrink-0"
           >
             {generating ? (
               <>
@@ -213,8 +213,8 @@ export default function Module2Copywriting({
 
       {/* FILTRO DE ÂNGULOS (SE HOUVER CRIATIVOS) */}
       {creatives.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex rounded-xl bg-slate-900 p-1 border border-slate-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-1 rounded-xl bg-slate-900 p-1 border border-slate-800 overflow-x-auto no-scrollbar max-w-full">
             {[
               { id: 'ALL', label: `Todos (${creatives.length})` },
               { id: 'PAS_DIRECT', label: '1. Direto na Dor (PAS)' },
@@ -225,7 +225,7 @@ export default function Module2Copywriting({
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveAngleFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${
                   activeAngleFilter === tab.id
                     ? 'bg-emerald-600 text-white'
                     : 'text-slate-400 hover:text-white'
@@ -238,10 +238,10 @@ export default function Module2Copywriting({
 
           <button
             onClick={() => onNavigateTab(3)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600/30 px-3.5 py-1.5 text-xs font-extrabold text-purple-300 transition"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-purple-600/20 border border-purple-500/40 hover:bg-purple-600/30 px-3.5 py-2 sm:py-1.5 text-xs font-extrabold text-purple-300 transition shrink-0"
           >
             <Video className="w-3.5 h-3.5" />
-            Ir para Aba 3 (Gerar Locução & Vídeo) →
+            Ir para Aba 3 (Locução & Vídeo) →
           </button>
         </div>
       )}

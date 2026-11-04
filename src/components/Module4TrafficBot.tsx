@@ -348,7 +348,68 @@ export default function Module4TrafficBot({
               Conjuntos de Anúncios ({campaigns.length})
             </h3>
           </div>
-          <div className="overflow-x-auto">
+
+          {/* VISÃO EM CARDS NO CELULAR (< 768px) */}
+          <div className="md:hidden divide-y divide-slate-800/70">
+            {campaigns.map((camp) => (
+              <div key={camp.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-bold text-xs text-white truncate">{camp.name}</div>
+                    <div className="text-[10px] text-slate-500 font-mono">
+                      {camp.externalAdSetId}
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 ${
+                      camp.status === 'ACTIVE'
+                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    }`}
+                  >
+                    {camp.status === 'ACTIVE' ? 'ATIVO' : 'PAUSADO'}
+                  </span>
+                </div>
+
+                <select
+                  value={camp.productId || ''}
+                  onChange={(e) => handleLinkProduct(camp.id, e.target.value)}
+                  className="w-full rounded-lg bg-slate-950 border border-slate-800 px-2.5 py-1.5 text-xs text-slate-200"
+                >
+                  <option value="">Vincular produto...</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title} (Meta CPA: ${p.targetCpaUsd})
+                    </option>
+                  ))}
+                </select>
+
+                <div className="grid grid-cols-3 gap-2 text-[11px]">
+                  <div className="rounded-lg bg-slate-950 p-2 border border-slate-800/80">
+                    <span className="text-slate-500 block">Gasto / Dia</span>
+                    <span className="font-bold text-amber-300">
+                      ${camp.spendUsd.toFixed(2)} / ${camp.dailyBudgetUsd.toFixed(0)}
+                    </span>
+                  </div>
+                  <div className="rounded-lg bg-slate-950 p-2 border border-slate-800/80">
+                    <span className="text-slate-500 block">Vendas</span>
+                    <span className="font-bold text-emerald-400">
+                      {camp.purchases} (${camp.revenueUsd.toFixed(0)})
+                    </span>
+                  </div>
+                  <div className="rounded-lg bg-slate-950 p-2 border border-slate-800/80">
+                    <span className="text-slate-500 block">ROAS / CTR</span>
+                    <span className="font-bold text-cyan-300">
+                      {camp.roas.toFixed(2)}x • {camp.ctr.toFixed(1)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* TABELA COMPLETA NO TABLET E DESKTOP (>= 768px) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-950/90 text-slate-400 border-b border-slate-800">
