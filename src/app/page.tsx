@@ -16,6 +16,7 @@ import {
   X,
   Sparkles,
   Menu,
+  Download,
 } from 'lucide-react';
 import {
   SystemStatusData,
@@ -342,17 +343,33 @@ export default function AutopilotDashboardPage() {
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            setMobileMenuOpen(false);
-            setShowHelpModal(true);
-          }}
-          className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 py-2 text-xs font-medium text-slate-300 hover:text-white transition"
-        >
-          <HelpCircle className="w-3.5 h-3.5 text-emerald-400" />
-          Como funciona o sistema?
-        </button>
+        <div className="grid grid-cols-2 gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setShowHelpModal(true);
+            }}
+            className="flex items-center justify-center gap-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 py-2 px-2 text-[11px] font-medium text-slate-300 hover:text-white transition"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span>Como funciona</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('open-pwa-install'));
+              }
+            }}
+            className="flex items-center justify-center gap-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 py-2 px-2 text-[11px] font-bold text-emerald-300 transition"
+          >
+            <Download className="w-3.5 h-3.5 shrink-0" />
+            <span>Instalar App</span>
+          </button>
+        </div>
       </div>
     </>
   );
