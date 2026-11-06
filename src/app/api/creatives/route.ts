@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const { searchParams } = new URL(req.url);
     const productId = searchParams.get('productId');
     const segment = searchParams.get('segment');
@@ -29,6 +30,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const body = await req.json();
     const {
       id,
@@ -82,6 +84,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {

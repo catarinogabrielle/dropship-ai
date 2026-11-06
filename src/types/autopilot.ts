@@ -1,4 +1,4 @@
-export type SegmentType = 'KIWIFY_GLOBAL' | 'SHOPIFY_US' | 'TIKTOK_SHOP' | 'ADS_SCALE';
+export type SegmentType = 'KIWIFY_GLOBAL' | 'SHOPIFY_US' | 'WIX_US' | 'TIKTOK_SHOP' | 'ADS_SCALE';
 
 export interface ApiCredentialData {
   id: string;

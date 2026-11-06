@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CheckCircle2,
   ExternalLink,
@@ -21,8 +21,23 @@ import {
   ChevronDown,
   ChevronUp,
   ArrowRight,
+  HardDrive,
+  FolderDown,
+  FolderUp,
+  User,
+  Shield,
+  Save,
 } from 'lucide-react';
 import { ApiCredentialData } from '@/types/autopilot';
+import {
+  getStoredCredentialsVault,
+  saveCredentialToVault,
+  getStoredProfileName,
+  saveStoredProfileName,
+  downloadBackupToFile,
+  restoreBackupFromFile,
+  syncVaultToBackend,
+} from '@/lib/storage-persistence';
 
 interface Module0SetupProps {
   credentials: ApiCredentialData[];
@@ -136,6 +151,29 @@ const PROVIDERS: ProviderConfig[] = [
     icon: <ShoppingBag className="w-5 h-5 text-lime-400" />,
   },
   {
+    provider: 'WIX',
+    title: 'Wix Stores / Wix eCommerce (EUA)',
+    tag: 'Alternativa à Shopify',
+    isEssential: false,
+    shortDesc: 'Conecta sua loja Wix americana via Automações/Webhook ou API Key (Taxa: 2.9% + $0.30).',
+    docsUrl: 'https://manage.wix.com/',
+    docsLabel: 'Abrir Painel Wix',
+    webhookEndpointPath: '/api/webhooks/wix',
+    stepByStepTutorial: [
+      '1. No painel do seu site Wix, acesse "Automations" (Automações) → "+ New Automation".',
+      '2. Em Trigger (Gatilho), escolha "Wix Stores → Order Paid" (Pedido Pago).',
+      '3. Em Action (Ação), escolha "Send via webhook" e cole o Link de Webhook abaixo.',
+      '4. Digite o nome/domínio do seu site Wix abaixo e clique em "Testar & Salvar".',
+    ],
+    fields: {
+      accountIdLabel: 'Domínio ou Site ID da Loja Wix',
+      accountIdPlaceholder: 'minhaloja.wixsite.com ou Site ID',
+      webhookSecretLabel: 'Wix API Key ou Segredo Webhook (Opcional)',
+      webhookSecretPlaceholder: 'IST.... ou segredo opcional',
+    },
+    icon: <ShoppingBag className="w-5 h-5 text-cyan-400" />,
+  },
+  {
     provider: 'META_ADS',
     title: 'Facebook & Instagram Ads',
     tag: 'Tráfego Pago • Aba 4',
@@ -222,11 +260,48 @@ export default function Module0Setup({
     Record<string, { type: 'success' | 'error'; message: string }>
   >({});
 
+  const [userProfileName, setUserProfileName] = useState<string>('Gabriel (Operação Principal)');
+  const [backupToast, setBackupToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isRestoring, setIsRestoring] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const origin =
     typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
   const getSavedCred = (provider: string) =>
     credentials.find((c) => c.provider === provider);
+
+  // Auto-hidratação a partir do LocalStorage Vault e sincronização com backend
+  useEffect(() => {
+    setUserProfileName(getStoredProfileName());
+    const vault = getStoredCredentialsVault();
+    if (Object.keys(vault).length > 0) {
+      setFormState((prev) => {
+        const merged: any = { ...prev };
+        for (const [p, val] of Object.entries(vault)) {
+          if (val.apiKey && !merged[p]?.apiKey) {
+            merged[p] = {
+              apiKey: val.apiKey,
+              accountId: val.accountId || '',
+              pixelId: val.pixelId || '',
+              webhookSecret: val.webhookSecret || '',
+            };
+          }
+        }
+        return merged;
+      });
+
+      // Se o backend ainda não tiver credenciais verificadas, sincroniza o cofre silenciosamente
+      if (credentials.length === 0) {
+        syncVaultToBackend().then(({ synced }) => {
+          if (synced > 0) {
+            onRefresh();
+          }
+        });
+      }
+    }
+  }, []);
 
   const handleFieldChange = (
     provider: string,
@@ -234,22 +309,97 @@ export default function Module0Setup({
     value: string
   ) => {
     const existing = getSavedCred(provider);
+    const updated = {
+      apiKey: formState[provider]?.apiKey ?? existing?.apiKey ?? '',
+      accountId: formState[provider]?.accountId ?? existing?.accountId ?? '',
+      pixelId: formState[provider]?.pixelId ?? existing?.pixelId ?? '',
+      webhookSecret: formState[provider]?.webhookSecret ?? existing?.webhookSecret ?? '',
+      [field]: value,
+    };
     setFormState((prev) => ({
       ...prev,
-      [provider]: {
-        apiKey: prev[provider]?.apiKey ?? existing?.apiKey ?? '',
-        accountId: prev[provider]?.accountId ?? existing?.accountId ?? '',
-        pixelId: prev[provider]?.pixelId ?? existing?.pixelId ?? '',
-        webhookSecret: prev[provider]?.webhookSecret ?? existing?.webhookSecret ?? '',
-        [field]: value,
-      },
+      [provider]: updated,
     }));
+    // Salva instantaneamente no LocalStorage para nunca perder dados ao fechar
+    saveCredentialToVault(provider, updated);
   };
 
   const handleCopyWebhook = (path: string, provider: string) => {
     navigator.clipboard.writeText(`${origin}${path}`);
     setCopiedWebhook(provider);
     setTimeout(() => setCopiedWebhook(null), 2000);
+  };
+
+  const handleExportBackup = async () => {
+    setIsExporting(true);
+    try {
+      const filename = await downloadBackupToFile(userProfileName);
+      setBackupToast({
+        type: 'success',
+        message: `Arquivo de backup "${filename}" baixado para o seu computador! Guarde em sua pasta segura.`,
+      });
+      setTimeout(() => setBackupToast(null), 5000);
+    } catch (err: any) {
+      setBackupToast({
+        type: 'error',
+        message: err.message || 'Erro ao exportar backup para o computador.',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleTriggerRestore = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsRestoring(true);
+    try {
+      const res = await restoreBackupFromFile(file);
+      if (res.success) {
+        setBackupToast({
+          type: 'success',
+          message: res.message || 'Backup restaurado com sucesso do seu arquivo!',
+        });
+        if (res.profileName) {
+          setUserProfileName(res.profileName);
+        }
+        // Recarrega do cofre
+        const vault = getStoredCredentialsVault();
+        setFormState((prev) => {
+          const merged: any = { ...prev };
+          for (const [p, val] of Object.entries(vault)) {
+            merged[p] = {
+              apiKey: val.apiKey,
+              accountId: val.accountId || '',
+              pixelId: val.pixelId || '',
+              webhookSecret: val.webhookSecret || '',
+            };
+          }
+          return merged;
+        });
+        await onRefresh();
+      } else {
+        setBackupToast({ type: 'error', message: res.message });
+      }
+    } catch (err: any) {
+      setBackupToast({
+        type: 'error',
+        message: err.message || 'Falha ao processar arquivo de backup.',
+      });
+    } finally {
+      setIsRestoring(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setTimeout(() => setBackupToast(null), 6000);
+    }
+  };
+
+  const handleProfileNameChange = (newName: string) => {
+    setUserProfileName(newName);
+    saveStoredProfileName(newName);
   };
 
   const handleTestAndSave = async (provider: string) => {
@@ -267,6 +417,9 @@ export default function Module0Setup({
       pixelId: formState[provider]?.pixelId ?? existing?.pixelId ?? '',
       webhookSecret: formState[provider]?.webhookSecret ?? existing?.webhookSecret ?? '',
     };
+
+    // Salva no vault local preventivamente
+    saveCredentialToVault(provider, values);
 
     try {
       const res = await fetch('/api/settings/credentials', {
@@ -292,6 +445,7 @@ export default function Module0Setup({
             message: `Verificado: ${data.credential?.accountName}`,
           },
         }));
+        saveCredentialToVault(provider, { ...values, isVerified: true });
         await onRefresh();
       }
     } catch (err: any) {
@@ -340,7 +494,96 @@ export default function Module0Setup({
         </div>
       </div>
 
-      {/* Grid Responsivo (1 coluna no mobile, 2 colunas em telas médias+) */}
+      {/* INPUT OCULTO PARA CARREGAR BACKUP DO COMPUTADOR */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        accept=".json"
+        className="hidden"
+      />
+
+      {/* FEEDBACK DE BACKUP */}
+      {backupToast && (
+        <div
+          className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2 transition animate-fadeIn ${
+            backupToast.type === 'success'
+              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+              : 'bg-red-500/15 border-red-500/40 text-red-300'
+          }`}
+        >
+          {backupToast.type === 'success' ? (
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+          ) : (
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-400" />
+          )}
+          <span>{backupToast.message}</span>
+        </div>
+      )}
+
+      {/* CENTRAL DE PERSISTÊNCIA & BACKUP NO COMPUTADOR DO USUÁRIO */}
+      <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 p-4 sm:p-5 space-y-3 shadow-lg">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <HardDrive className="w-4 h-4" />
+              </div>
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                Persistência & Backup no seu Computador
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                  <Shield className="w-2.5 h-2.5" /> Auto-Save Ativo
+                </span>
+              </h3>
+            </div>
+            <p className="text-xs text-slate-300">
+              Todas as informações digitadas são salvas automaticamente na memória do seu computador para você nunca perder nada ao fechar.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleExportBackup}
+              disabled={isExporting}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 px-3.5 py-2 text-xs font-bold text-white transition disabled:opacity-50 shadow-sm"
+              title="Baixa um arquivo .JSON com todas as suas chaves e produtos para guardar em sua pasta"
+            >
+              <FolderDown className={`w-3.5 h-3.5 ${isExporting ? 'animate-bounce' : ''}`} />
+              {isExporting ? 'Salvando...' : 'Salvar no Meu PC (.JSON)'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleTriggerRestore}
+              disabled={isRestoring}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 text-xs font-bold text-slate-200 transition disabled:opacity-50"
+              title="Carrega um arquivo .JSON do seu computador para restaurar tudo"
+            >
+              <FolderUp className={`w-3.5 h-3.5 ${isRestoring ? 'animate-spin' : ''}`} />
+              {isRestoring ? 'Restaurando...' : 'Carregar do Meu PC'}
+            </button>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-[11px]">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-bold flex items-center gap-1">
+              <User className="w-3 h-3 text-cyan-400" /> Perfil / Usuário Fixo:
+            </span>
+            <input
+              type="text"
+              value={userProfileName}
+              onChange={(e) => handleProfileNameChange(e.target.value)}
+              className="rounded-lg bg-slate-950 border border-slate-700 px-2.5 py-1 text-xs text-white font-medium focus:outline-none focus:border-cyan-500"
+              placeholder="Seu nome ou operação..."
+            />
+          </div>
+          <span className="text-slate-400">
+            💡 Dica: Salve o arquivo na sua pasta do projeto ou Google Drive para ter um backup permanente.
+          </span>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {PROVIDERS.map((cfg) => {
           const saved = getSavedCred(cfg.provider);

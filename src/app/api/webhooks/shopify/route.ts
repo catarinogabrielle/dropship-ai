@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
 import { MetaAdsService } from '@/services/meta-ads.service';
 
@@ -9,8 +9,32 @@ import { MetaAdsService } from '@/services/meta-ads.service';
  * Taxa oficial Shopify Payments US: 2.9% + US$ 0.30
  * Dispara Server-Side Meta Conversions API (CAPI) com hash SHA-256 do e-mail
  */
+
+/**
+ * Health Check via GET para verificação no navegador ou ping de teste da plataforma
+ */
+export async function GET() {
+  try {
+    await ensureSqliteTables();
+    return NextResponse.json({
+      status: 'online',
+      active: true,
+      platform: 'Shopify US (Dropshipping Físico)',
+      endpoint: '/api/webhooks/shopify',
+      fee: '2.9% + US$ 0.30',
+      readyForSales: true,
+      message: 'Webhook Shopify US ativo e pronto para receber vendas em Dólar em tempo real!',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro no health check';
+    return NextResponse.json({ status: 'error', error: message }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const rawBody = await req.text();
     const payload = JSON.parse(rawBody || '{}');
 
@@ -60,7 +84,7 @@ export async function POST(req: NextRequest) {
       await prisma.automationLog.create({
         data: {
           module: 'WEBHOOK_SHOPIFY',
-          action: `ORDER_STATUS_${financialStatus.toUpperCase() || 'IGNORED'}`,
+          action: `FINANCIAL_STATUS_${financialStatus.toUpperCase() || 'IGNORED'}`,
           targetId: externalOrderId,
           httpStatus: 200,
           detailsJson: JSON.stringify({ financialStatus, externalOrderId }),
@@ -69,7 +93,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, status: financialStatus });
     }
 
-    // Taxa real Shopify US: 2.9% + US$ 0.30
+    // Taxa real Shopify Payments US: 2.9% + US$ 0.30
     const gatewayFeeUsd = +(grossUsd * 0.029 + 0.3).toFixed(2);
     const netUsd = +(grossUsd - gatewayFeeUsd).toFixed(2);
 
@@ -78,14 +102,13 @@ export async function POST(req: NextRequest) {
     const exchangeRateBrl = exchange.rate;
     const netBrl = +(netUsd * exchangeRateBrl).toFixed(2);
 
-    let linkedProductId: string | null = payload.product_id || null;
-    if (!linkedProductId) {
-      const matchedProduct = await prisma.product.findFirst({
-        where: { segment: 'SHOPIFY_US' },
-        orderBy: { createdAt: 'desc' },
-      });
-      linkedProductId = matchedProduct?.id || null;
-    }
+    // Vincula ao produto SHOPIFY_US mais recente cadastrado
+    let linkedProductId: string | null = null;
+    const matchedProduct = await prisma.product.findFirst({
+      where: { segment: 'SHOPIFY_US' },
+      orderBy: { createdAt: 'desc' },
+    });
+    linkedProductId = matchedProduct?.id || null;
 
     // Dispara Server-Side Meta Conversions API (CAPI)
     let capiSent = false;

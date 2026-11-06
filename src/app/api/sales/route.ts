@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const { searchParams } = new URL(req.url);
     const segment = searchParams.get('segment');
 
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       getRealUsdBrlRate(),
       prisma.automationLog.findMany({
         where: {
-          module: { in: ['WEBHOOK_KIWIFY', 'WEBHOOK_SHOPIFY', 'META_CAPI'] },
+          module: { in: ['WEBHOOK_KIWIFY', 'WEBHOOK_SHOPIFY', 'WEBHOOK_WIX', 'META_CAPI'] },
         },
         orderBy: { createdAt: 'desc' },
         take: 25,

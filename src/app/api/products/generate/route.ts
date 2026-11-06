@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
 
 /**
@@ -12,6 +12,7 @@ import { getRealUsdBrlRate } from '@/lib/exchange';
  */
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const body = await req.json();
     const {
       mode = 'CREATE_EBOOK', // 'CREATE_EBOOK' | 'AFFILIATE_OFFER' | 'DROPSHIP_PRODUCT'

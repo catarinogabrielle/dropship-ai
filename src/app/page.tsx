@@ -17,7 +17,15 @@ import {
   Sparkles,
   Menu,
   Download,
+  HardDrive,
+  FolderDown,
+  FolderUp,
 } from 'lucide-react';
+import {
+  downloadBackupToFile,
+  restoreBackupFromFile,
+  syncVaultToBackend,
+} from '@/lib/storage-persistence';
 import {
   SystemStatusData,
   ProductData,
@@ -97,6 +105,7 @@ const SEGMENT_PILLS: {
 }[] = [
   { id: 'KIWIFY_GLOBAL', label: 'Kiwify Global', fee: '9.99%+$0.80' },
   { id: 'SHOPIFY_US', label: 'Shopify US', fee: '2.9%+$0.30' },
+  { id: 'WIX_US', label: 'Wix Stores US', fee: '2.9%+$0.30' },
   { id: 'TIKTOK_SHOP', label: 'TikTok Shop US', fee: '6.0%' },
   { id: 'ADS_SCALE', label: 'Escala Ads (Meta/Google)', fee: 'Auto-Scale' },
 ];
@@ -183,7 +192,10 @@ export default function AutopilotDashboardPage() {
   }, [selectedSegment]);
 
   useEffect(() => {
-    fetchAllRealData();
+    // Sincroniza cofre local com o backend automaticamente se o backend tiver reiniciado
+    syncVaultToBackend().finally(() => {
+      fetchAllRealData();
+    });
   }, [fetchAllRealData]);
 
   const progressPercent = systemStatus?.progressPercent ?? 0;
@@ -370,6 +382,24 @@ export default function AutopilotDashboardPage() {
             <span>Instalar App</span>
           </button>
         </div>
+
+        {/* Botão de Salvar Backup no Computador */}
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const file = await downloadBackupToFile();
+              alert(`Backup exportado com sucesso: ${file}\nGuarde este arquivo na pasta do seu computador para restaurar quando quiser!`);
+            } catch (err: any) {
+              alert('Falha ao exportar backup: ' + (err?.message || 'Erro desconhecido'));
+            }
+          }}
+          className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-500/30 py-1.5 px-2 text-[11px] font-bold text-cyan-300 transition"
+          title="Baixa arquivo .JSON com todas as suas chaves e produtos para o seu computador"
+        >
+          <FolderDown className="w-3.5 h-3.5" />
+          <span>Salvar Backup no PC</span>
+        </button>
       </div>
     </>
   );

@@ -1,46 +1,65 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign,
-  Webhook,
+  TrendingUp,
+  ExternalLink,
   Copy,
   CheckCircle2,
-  ShieldCheck,
   RefreshCw,
+  ShieldCheck,
+  Webhook,
   ArrowUpRight,
-  ExternalLink,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  Zap,
+  Check,
 } from 'lucide-react';
 import { SaleData, ExchangeInfo } from '@/types/autopilot';
 
 interface Module5SalesWebhooksProps {
   sales: SaleData[];
-  exchange: ExchangeInfo;
   summary: {
-    count: number;
     grossUsd: number;
     gatewayFeeUsd: number;
     netUsd: number;
-    netBrl: number;
     liveConvertedNetBrl: number;
+    count: number;
+  };
+  exchange: ExchangeInfo | {
+    rate: number;
+    source: string;
+    updatedAt?: string;
+    timestamp?: string;
   };
   onRefresh: () => Promise<void>;
 }
 
 export default function Module5SalesWebhooks({
   sales,
-  exchange,
   summary,
+  exchange,
   onRefresh,
 }: Module5SalesWebhooksProps) {
   const [copiedEndpoint, setCopiedEndpoint] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [testingWebhooks, setTestingWebhooks] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(true);
+  const [expandedGuide, setExpandedGuide] = useState<string | null>('kiwify');
+
+  const [webhookHealth, setWebhookHealth] = useState<
+    Record<string, { ok: boolean; statusText: string; latencyMs: number }>
+  >({});
 
   const origin =
     typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
   const kiwifyWebhookUrl = `${origin}/api/webhooks/kiwify`;
   const shopifyWebhookUrl = `${origin}/api/webhooks/shopify`;
+  const wixWebhookUrl = `${origin}/api/webhooks/wix`;
 
   const handleCopy = (url: string, key: string) => {
     navigator.clipboard.writeText(url);
@@ -57,9 +76,47 @@ export default function Module5SalesWebhooks({
     }
   };
 
+  const handleTestWebhooks = async () => {
+    setTestingWebhooks(true);
+    const endpoints = [
+      { key: 'kiwify', path: '/api/webhooks/kiwify' },
+      { key: 'shopify', path: '/api/webhooks/shopify' },
+      { key: 'wix', path: '/api/webhooks/wix' },
+    ];
+
+    const results: Record<string, { ok: boolean; statusText: string; latencyMs: number }> = {};
+
+    for (const ep of endpoints) {
+      const start = Date.now();
+      try {
+        const res = await fetch(ep.path, { method: 'GET' });
+        const latencyMs = Date.now() - start;
+        results[ep.key] = {
+          ok: res.ok,
+          statusText: res.ok ? '200 OK • Online' : `Erro HTTP ${res.status}`,
+          latencyMs,
+        };
+      } catch (err: any) {
+        results[ep.key] = {
+          ok: false,
+          statusText: 'Inacessível',
+          latencyMs: Date.now() - start,
+        };
+      }
+    }
+
+    setWebhookHealth(results);
+    setTestingWebhooks(false);
+  };
+
+  // Testa automaticamente na primeira carga
+  useEffect(() => {
+    handleTestWebhooks();
+  }, []);
+
   return (
     <div className="space-y-5">
-      {/* 4 KPI CARDS FINANCEIROS (2x2 no celular, 4 col no desktop) */}
+      {/* 4 KPI CARDS FINANCEIROS */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-2xl border border-slate-800/90 bg-slate-900/75 p-3.5 sm:p-4">
           <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-400 block truncate">
@@ -69,7 +126,7 @@ export default function Module5SalesWebhooks({
             US$ {summary.grossUsd.toFixed(2)}
           </span>
           <span className="text-[11px] text-slate-500 mt-0.5 block">
-            {summary.count} vendas
+            {summary.count} vendas registradas
           </span>
         </div>
 
@@ -81,7 +138,7 @@ export default function Module5SalesWebhooks({
             -US$ {summary.gatewayFeeUsd.toFixed(2)}
           </span>
           <span className="text-[11px] text-slate-500 mt-0.5 block truncate">
-            Kiwify / Shopify
+            Kiwify / Shopify / Wix
           </span>
         </div>
 
@@ -93,7 +150,7 @@ export default function Module5SalesWebhooks({
             US$ {summary.netUsd.toFixed(2)}
           </span>
           <span className="text-[11px] text-slate-400 mt-0.5 block truncate">
-            Livre de taxas
+            Livre de taxas de cartão
           </span>
         </div>
 
@@ -106,21 +163,213 @@ export default function Module5SalesWebhooks({
           </span>
           <span className="text-[11px] text-emerald-300 mt-0.5 flex items-center gap-1">
             <ArrowUpRight className="w-3 h-3 shrink-0" />
-            US$ 1 = R$ {exchange.rate.toFixed(2)}
+            US$ 1 = R$ {exchange.rate.toFixed(2)} (Banco Central)
           </span>
         </div>
       </div>
 
-      {/* LINKS DE WEBHOOK COMPACTOS (KIWIFY & SHOPIFY) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-2.5">
+      {/* GUIA DIDÁTICO: O QUE É UM WEBHOOK & COMO FUNCIONA */}
+      <div className="rounded-2xl border border-indigo-500/30 bg-slate-900/80 p-4 sm:p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400">
+              <Info className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                O que é um Webhook e para que servem estes links?
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Explicação Simples
+                </span>
+              </h3>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Entenda como sua loja avisa este robô em tempo real sem você precisar fazer nada manualmente.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleTestWebhooks}
+              disabled={testingWebhooks}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white transition disabled:opacity-50"
+            >
+              <Activity className={`w-3.5 h-3.5 ${testingWebhooks ? 'animate-spin' : ''}`} />
+              {testingWebhooks ? 'Testando...' : 'Verificar Status dos Webhooks'}
+            </button>
+            <button
+              onClick={() => setShowExplanation(!showExplanation)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              title={showExplanation ? 'Ocultar Explicação' : 'Exibir Explicação'}
+            >
+              {showExplanation ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {showExplanation && (
+          <div className="space-y-4 pt-2 border-t border-slate-800/80 text-xs">
+            {/* FLUXO VISUAL EM 4 ETAPAS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+              <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-amber-400 uppercase flex items-center gap-1">
+                  <Zap className="w-3 h-3" /> 1. Venda nos EUA
+                </span>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  Um cliente americano compra seu produto (E-book ou Físico) na Kiwify, Shopify ou Wix.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-cyan-400 uppercase flex items-center gap-1">
+                  <Webhook className="w-3 h-3" /> 2. Disparo Automático
+                </span>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  A plataforma envia imediatamente um pacote de dados para o link de webhook correspondente abaixo.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-emerald-400 uppercase flex items-center gap-1">
+                  <DollarSign className="w-3 h-3" /> 3. Cálculo de Lucro Líquido
+                </span>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  O robô desconta a taxa de checkout, converte o Dólar em Reais na cotação do dia e salva na tabela.
+                </p>
+              </div>
+
+              <div className="rounded-xl bg-slate-950/70 border border-slate-800 p-3 space-y-1">
+                <span className="text-[10px] font-bold text-purple-400 uppercase flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> 4. Otimização no Meta Ads
+                </span>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  O robô dispara o evento CAPI para o Pixel do Facebook/Instagram com hash do e-mail para baratear seus anúncios.
+                </p>
+              </div>
+            </div>
+
+            {/* SELETORES DE TUTORIAL PASSO A PASSO */}
+            <div className="space-y-2 pt-1">
+              <span className="text-[11px] font-bold text-slate-400 block">
+                Onde colar cada link na sua plataforma? (Clique para ver o tutorial):
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExpandedGuide(expandedGuide === 'kiwify' ? null : 'kiwify')}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                    expandedGuide === 'kiwify'
+                      ? 'bg-amber-500/20 border-amber-500 text-amber-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  📘 Passo a Passo Kiwify
+                  {expandedGuide === 'kiwify' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setExpandedGuide(expandedGuide === 'shopify' ? null : 'shopify')}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                    expandedGuide === 'shopify'
+                      ? 'bg-lime-500/20 border-lime-500 text-lime-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  🟢 Passo a Passo Shopify
+                  {expandedGuide === 'shopify' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setExpandedGuide(expandedGuide === 'wix' ? null : 'wix')}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
+                    expandedGuide === 'wix'
+                      ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
+                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  ⚡ Passo a Passo Wix Stores
+                  {expandedGuide === 'wix' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              </div>
+
+              {expandedGuide === 'kiwify' && (
+                <div className="rounded-xl bg-slate-950 border border-amber-500/30 p-3.5 space-y-1.5 text-slate-300">
+                  <p className="font-bold text-amber-300 text-xs">Configurando o Webhook na Kiwify:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+                    <li>Entre no painel da <strong>Kiwify</strong> e clique em <strong>Apps &rarr; Webhooks</strong>.</li>
+                    <li>Clique no botão verde <strong>"Criar Webhook"</strong>.</li>
+                    <li>No campo <strong>Nome</strong>, digite: <code className="text-amber-300 font-mono">Autopilot Dólar IA</code>.</li>
+                    <li>No campo <strong>URL do Webhook</strong>, cole a URL do Kiwify abaixo.</li>
+                    <li>Em <strong>Eventos</strong>, marque a caixa: <strong>"Compra aprovada"</strong>.</li>
+                    <li>Clique em <strong>Salvar</strong>. Pronto! Cada venda aprovada será computada automaticamente.</li>
+                  </ol>
+                </div>
+              )}
+
+              {expandedGuide === 'shopify' && (
+                <div className="rounded-xl bg-slate-950 border border-lime-500/30 p-3.5 space-y-1.5 text-slate-300">
+                  <p className="font-bold text-lime-300 text-xs">Configurando o Webhook na Shopify:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+                    <li>Entre no painel da sua loja <strong>Shopify</strong> e clique em <strong>Settings (Configurações)</strong> no canto inferior esquerdo.</li>
+                    <li>Clique em <strong>Notifications (Notificações)</strong> &rarr; role até o final da página até <strong>Webhooks</strong>.</li>
+                    <li>Clique em <strong>"Create webhook" (Criar webhook)</strong>.</li>
+                    <li>Em <strong>Event (Evento)</strong>, selecione: <code className="text-lime-300 font-mono">Order payment (Pagamento do pedido)</code>.</li>
+                    <li>Em <strong>Format (Formato)</strong>, selecione: <strong>JSON</strong>.</li>
+                    <li>No campo <strong>URL</strong>, cole a URL da Shopify abaixo e clique em <strong>Save (Salvar)</strong>.</li>
+                  </ol>
+                </div>
+              )}
+
+              {expandedGuide === 'wix' && (
+                <div className="rounded-xl bg-slate-950 border border-cyan-500/30 p-3.5 space-y-1.5 text-slate-300">
+                  <p className="font-bold text-cyan-300 text-xs">Configurando o Webhook na Wix Stores / Wix Automations:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
+                    <li>Acesse o painel do seu site no <strong>Wix</strong> e clique em <strong>Automações (Automations)</strong>.</li>
+                    <li>Clique em <strong>"Nova Automação"</strong> ou <strong>"Criar do zero"</strong>.</li>
+                    <li>Em <strong>Gatilho (Trigger)</strong>, escolha <strong>Wix Stores &rarr; Pedido Pago (Order Paid)</strong>.</li>
+                    <li>Em <strong>Ação (Action)</strong>, escolha <strong>Conectar &rarr; Enviar via Webhook (Send via webhook)</strong>.</li>
+                    <li>Cole a URL do Wix abaixo no campo da URL e clique em <strong>Ativar</strong>.</li>
+                    <li>Opcional: Cole seu Site ID ou Token no Módulo 0 para puxar dados automáticos da loja.</li>
+                  </ol>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3 CARDS DE WEBHOOKS (KIWIFY, SHOPIFY & WIX) - URL TOTALMENTE VISÍVEL */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* CARD KIWIFY */}
+        <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="text-xs font-extrabold text-amber-300 block">
-                Webhook Kiwify Internacional
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Cole em: Kiwify &rarr; Apps &rarr; Webhooks (Compra aprovada)
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-amber-300 block">
+                  Webhook Kiwify Internacional
+                </span>
+                {webhookHealth.kiwify && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      webhookHealth.kiwify.ok
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                    }`}
+                  >
+                    {webhookHealth.kiwify.ok ? (
+                      <>
+                        <Check className="w-2.5 h-2.5" /> 200 OK
+                      </>
+                    ) : (
+                      'Erro'
+                    )}
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                Taxa: 9.99% + US$ 0.80 • Produtos Digitais & E-books
               </span>
             </div>
             <a
@@ -133,40 +382,58 @@ export default function Module5SalesWebhooks({
             </a>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={kiwifyWebhookUrl}
-              className="flex-1 rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-mono text-emerald-300 min-w-0"
-            />
+          <div className="space-y-2">
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-emerald-300 break-all select-all leading-relaxed">
+              {kiwifyWebhookUrl}
+            </div>
+
             <button
               onClick={() => handleCopy(kiwifyWebhookUrl, 'kiwify')}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 px-3.5 py-2 text-xs font-extrabold text-white transition shrink-0"
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 py-2 text-xs font-extrabold text-white transition shadow-sm"
             >
               {copiedEndpoint === 'kiwify' ? (
                 <>
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Copiado!
+                  URL Copiada com Sucesso!
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  Copiar URL
+                  Copiar Link Kiwify
                 </>
               )}
             </button>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-2.5">
+        {/* CARD SHOPIFY */}
+        <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <span className="text-xs font-extrabold text-lime-300 block">
-                Webhook Shopify US
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Cole em: Settings &rarr; Notifications &rarr; Webhooks (Order payment)
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-lime-300 block">
+                  Webhook Shopify US
+                </span>
+                {webhookHealth.shopify && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      webhookHealth.shopify.ok
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                    }`}
+                  >
+                    {webhookHealth.shopify.ok ? (
+                      <>
+                        <Check className="w-2.5 h-2.5" /> 200 OK
+                      </>
+                    ) : (
+                      'Erro'
+                    )}
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                Taxa: 2.9% + US$ 0.30 • Dropshipping Físico EUA
               </span>
             </div>
             <a
@@ -179,26 +446,88 @@ export default function Module5SalesWebhooks({
             </a>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={shopifyWebhookUrl}
-              className="flex-1 rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs font-mono text-emerald-300 min-w-0"
-            />
+          <div className="space-y-2">
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-emerald-300 break-all select-all leading-relaxed">
+              {shopifyWebhookUrl}
+            </div>
+
             <button
               onClick={() => handleCopy(shopifyWebhookUrl, 'shopify')}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-lime-600 hover:bg-lime-500 px-3.5 py-2 text-xs font-extrabold text-white transition shrink-0"
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-lime-600 hover:bg-lime-500 py-2 text-xs font-extrabold text-white transition shadow-sm"
             >
               {copiedEndpoint === 'shopify' ? (
                 <>
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Copiado!
+                  URL Copiada com Sucesso!
                 </>
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  Copiar URL
+                  Copiar Link Shopify
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* CARD WIX */}
+        <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-cyan-300 block">
+                  Webhook Wix Stores US
+                </span>
+                {webhookHealth.wix && (
+                  <span
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      webhookHealth.wix.ok
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                    }`}
+                  >
+                    {webhookHealth.wix.ok ? (
+                      <>
+                        <Check className="w-2.5 h-2.5" /> 200 OK
+                      </>
+                    ) : (
+                      'Erro'
+                    )}
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-400 block mt-0.5">
+                Taxa: 2.9% + US$ 0.30 • Loja Wix / Wix eCommerce
+              </span>
+            </div>
+            <a
+              href="https://manage.wix.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-bold text-cyan-300 hover:underline inline-flex items-center gap-1 shrink-0"
+            >
+              Abrir Wix <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
+          <div className="space-y-2">
+            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-emerald-300 break-all select-all leading-relaxed">
+              {wixWebhookUrl}
+            </div>
+
+            <button
+              onClick={() => handleCopy(wixWebhookUrl, 'wix')}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 py-2 text-xs font-extrabold text-white transition shadow-sm"
+            >
+              {copiedEndpoint === 'wix' ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  URL Copiada com Sucesso!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copiar Link Wix
                 </>
               )}
             </button>
@@ -220,16 +549,16 @@ export default function Module5SalesWebhooks({
             className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 px-3 py-1 text-xs font-semibold text-slate-200 transition"
           >
             <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
-            Atualizar
+            Atualizar Vendas
           </button>
         </div>
 
         {sales.length === 0 ? (
           <div className="p-8 text-center">
             <Webhook className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-            <h4 className="text-sm font-bold text-white">Nenhuma venda registrada ainda</h4>
-            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
-              Assim que a Kiwify ou Shopify disparar o webhook de pagamento aprovado, o pedido aparecerá aqui convertido em Dólar e Reais.
+            <h4 className="text-sm font-bold text-white">Nenhuma venda recebida ainda</h4>
+            <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
+              Assim que a Kiwify, Shopify ou Wix disparar o webhook de compra aprovada, a venda aparecerá nesta tabela automaticamente convertida em Dólar e Reais.
             </p>
           </div>
         ) : (
@@ -273,67 +602,67 @@ export default function Module5SalesWebhooks({
             {/* TABELA NO TABLET E DESKTOP (>= 768px) */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-950/90 text-slate-400 border-b border-slate-800">
-                  <th className="py-2.5 px-4">Pedido</th>
-                  <th className="py-2.5 px-3">Plataforma</th>
-                  <th className="py-2.5 px-3">País</th>
-                  <th className="py-2.5 px-3">Bruto (USD)</th>
-                  <th className="py-2.5 px-3">Taxa</th>
-                  <th className="py-2.5 px-3">Líquido (USD)</th>
-                  <th className="py-2.5 px-3">Câmbio</th>
-                  <th className="py-2.5 px-3">Líquido (R$)</th>
-                  <th className="py-2.5 px-3">Meta CAPI</th>
-                  <th className="py-2.5 px-3">Data</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/70">
-                {sales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-slate-800/40">
-                    <td className="py-2.5 px-4 font-mono font-bold text-white">
-                      {sale.externalOrderId}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-200 font-medium text-[11px]">
-                        {sale.platform}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-semibold text-slate-300">
-                      {sale.customerCountry}
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-white">
-                      ${sale.grossUsd.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-amber-400">
-                      -${sale.gatewayFeeUsd.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-emerald-400">
-                      ${sale.netUsd.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400">
-                      R$ {sale.exchangeRateBrl.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3 font-bold text-emerald-300">
-                      R$ {sale.netBrl.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 px-3">
-                      {sale.capiSent ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                          <ShieldCheck className="w-3 h-3" />
-                          Enviado
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">Salvo</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-3 text-slate-400">
-                      {new Date(sale.createdAt).toLocaleString('pt-BR')}
-                    </td>
+                <thead>
+                  <tr className="bg-slate-950/90 text-slate-400 border-b border-slate-800">
+                    <th className="py-2.5 px-4">Pedido</th>
+                    <th className="py-2.5 px-3">Plataforma</th>
+                    <th className="py-2.5 px-3">País</th>
+                    <th className="py-2.5 px-3">Bruto (USD)</th>
+                    <th className="py-2.5 px-3">Taxa</th>
+                    <th className="py-2.5 px-3">Líquido (USD)</th>
+                    <th className="py-2.5 px-3">Câmbio</th>
+                    <th className="py-2.5 px-3">Líquido (R$)</th>
+                    <th className="py-2.5 px-3">Meta CAPI</th>
+                    <th className="py-2.5 px-3">Data</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-800/70">
+                  {sales.map((sale) => (
+                    <tr key={sale.id} className="hover:bg-slate-800/40">
+                      <td className="py-2.5 px-4 font-mono font-bold text-white">
+                        {sale.externalOrderId}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-200 font-medium text-[11px]">
+                          {sale.platform}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-300">
+                        {sale.customerCountry}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-white">
+                        ${sale.grossUsd.toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-amber-400">
+                        -${sale.gatewayFeeUsd.toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-emerald-400">
+                        ${sale.netUsd.toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400">
+                        R$ {sale.exchangeRateBrl.toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3 font-bold text-emerald-300">
+                        R$ {sale.netBrl.toFixed(2)}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        {sale.capiSent ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                            <ShieldCheck className="w-3 h-3" />
+                            Enviado
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">Salvo</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-slate-400">
+                        {new Date(sale.createdAt).toLocaleString('pt-BR')}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </div>

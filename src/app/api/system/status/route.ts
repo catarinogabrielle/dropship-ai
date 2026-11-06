@@ -57,7 +57,11 @@ export async function GET() {
     );
     const step5WebhookAndCronReady =
       cronState.isCronActive &&
-      (credentials.some((c) => (c.provider === 'KIWIFY' || c.provider === 'SHOPIFY') && c.isVerified) ||
+      (credentials.some(
+        (c) =>
+          (c.provider === 'KIWIFY' || c.provider === 'SHOPIFY' || c.provider === 'WIX') &&
+          c.isVerified
+      ) ||
         salesCount > 0);
 
     const steps = [

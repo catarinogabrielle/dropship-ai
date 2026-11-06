@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const { productId } = await req.json();
     if (!productId) {
       return NextResponse.json({ error: 'Selecione um produto real do banco de dados.' }, { status: 400 });

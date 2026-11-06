@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
 import { MetaAdsService } from '@/services/meta-ads.service';
 
@@ -9,8 +9,32 @@ import { MetaAdsService } from '@/services/meta-ads.service';
  * Taxa oficial: 9.99% + US$ 0.80
  * Dispara Server-Side Meta Conversions API (CAPI) com hash SHA-256 do e-mail
  */
+
+/**
+ * Health Check via GET para verificação no navegador ou ping de teste da plataforma
+ */
+export async function GET() {
+  try {
+    await ensureSqliteTables();
+    return NextResponse.json({
+      status: 'online',
+      active: true,
+      platform: 'Kiwify Internacional (Global USD)',
+      endpoint: '/api/webhooks/kiwify',
+      fee: '9.99% + US$ 0.80',
+      readyForSales: true,
+      message: 'Webhook Kiwify ativo e pronto para receber vendas em Dólar em tempo real!',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Erro no health check';
+    return NextResponse.json({ status: 'error', error: message }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const payload = await req.json();
 
     // Valida secret se configurado na tabela ApiCredential

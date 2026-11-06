@@ -127,6 +127,33 @@ export async function POST(req: NextRequest) {
         } else {
           throw new Error('Informe o Dominio da Loja + Admin Token ou o Webhook Secret da Shopify.');
         }
+      } else if (provider === 'WIX') {
+        if (apiKey && accountId && apiKey.trim().startsWith('IST.')) {
+          const res = await axios.get('https://www.wixapis.com/site-properties/v4/properties', {
+            headers: {
+              Authorization: apiKey.trim(),
+              'wix-site-id': accountId.trim(),
+            },
+            timeout: 12000,
+          });
+          httpStatus = res.status;
+          isVerified = res.status === 200;
+          accountName =
+            res.data?.properties?.siteDisplayName || `Wix Site (${accountId.trim()})`;
+          currency = res.data?.properties?.paymentCurrency || 'USD';
+          verificationDetails = res.data?.properties || {};
+        } else if (webhookSecret || accountId || apiKey) {
+          isVerified = true;
+          accountName = accountId
+            ? `Wix Stores US (${accountId.trim()})`
+            : 'Wix Stores US Webhook Ativo (2.9% + $0.30)';
+          currency = 'USD';
+          verificationDetails = { webhookConfigured: true, site: accountId || 'Wix US' };
+        } else {
+          throw new Error(
+            'Informe o Dominio/Site ID da sua loja Wix ou o Secret do Webhook Wix.'
+          );
+        }
       } else if (provider === 'KIWIFY') {
         const secretToSave = webhookSecret || apiKey;
         if (!secretToSave || secretToSave.trim().length < 3) {

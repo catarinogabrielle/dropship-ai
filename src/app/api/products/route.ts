@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
 
 export async function GET(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const { searchParams } = new URL(req.url);
     const segment = searchParams.get('segment');
 
@@ -32,6 +33,7 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) {
