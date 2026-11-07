@@ -25,6 +25,8 @@ import {
   downloadBackupToFile,
   restoreBackupFromFile,
   syncVaultToBackend,
+  saveProductsToVault,
+  saveCreativesToVault,
 } from '@/lib/storage-persistence';
 import {
   SystemStatusData,
@@ -105,7 +107,6 @@ const SEGMENT_PILLS: {
 }[] = [
   { id: 'KIWIFY_GLOBAL', label: 'Kiwify Global', fee: '9.99%+$0.80' },
   { id: 'SHOPIFY_US', label: 'Shopify US', fee: '2.9%+$0.30' },
-  { id: 'WIX_US', label: 'Wix Stores US', fee: '2.9%+$0.30' },
   { id: 'TIKTOK_SHOP', label: 'TikTok Shop US', fee: '6.0%' },
   { id: 'ADS_SCALE', label: 'Escala Ads (Meta/Google)', fee: 'Auto-Scale' },
 ];
@@ -162,11 +163,15 @@ export default function AutopilotDashboardPage() {
       if (statusRes.ok) setSystemStatus(await statusRes.json());
       if (prodRes.ok) {
         const pr = await prodRes.json();
-        setProducts(pr.products || []);
+        const prods = pr.products || [];
+        setProducts(prods);
+        if (prods.length > 0) saveProductsToVault(prods);
       }
       if (creatRes.ok) {
         const cr = await creatRes.json();
-        setCreatives(cr.creatives || []);
+        const creats = cr.creatives || [];
+        setCreatives(creats);
+        if (creats.length > 0) saveCreativesToVault(creats);
       }
       if (adsRes.ok) {
         const ad = await adsRes.json();

@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { ApiCredentialData } from '@/types/autopilot';
 import {
+  StoredCredentialsVault,
   getStoredCredentialsVault,
   saveCredentialToVault,
   getStoredProfileName,
@@ -120,11 +121,11 @@ const PROVIDERS: ProviderConfig[] = [
     stepByStepTutorial: [
       '1. No painel da Kiwify, acesse "Apps → Webhooks → Criar Webhook".',
       '2. Cole o Link de Webhook abaixo no campo URL e marque "Compra aprovada".',
-      '3. Copie o "Token" gerado pela Kiwify e cole no campo abaixo.',
+      '3. Copie o "Token" gerado pela Kiwify, cole no campo abaixo e clique em "Testar & Salvar".',
     ],
     fields: {
-      webhookSecretLabel: 'Token do Webhook Kiwify',
-      webhookSecretPlaceholder: 'kwf_sec_...',
+      webhookSecretLabel: 'Token do Webhook Kiwify (Opcional)',
+      webhookSecretPlaceholder: 'kwf_sec_... (ou clique em Testar & Salvar para ativar)',
     },
     icon: <Globe className="w-5 h-5 text-amber-400" />,
   },
@@ -139,39 +140,16 @@ const PROVIDERS: ProviderConfig[] = [
     webhookEndpointPath: '/api/webhooks/shopify',
     stepByStepTutorial: [
       '1. Na Shopify, vá em "Settings → Notifications → Webhooks → Create webhook".',
-      '2. Escolha o evento "Order payment" e cole o Link de Webhook abaixo.',
-      '3. Copie o "Webhook signing secret" da Shopify e cole abaixo.',
+      '2. Escolha o evento "Order payment", formato JSON, e cole o Link de Webhook abaixo.',
+      '3. Cole o domínio da loja ou o "Webhook signing secret" abaixo e clique em "Testar & Salvar".',
     ],
     fields: {
       accountIdLabel: 'Domínio da Loja (Opcional)',
       accountIdPlaceholder: 'sua-loja.myshopify.com',
-      webhookSecretLabel: 'Webhook Secret (Ou Admin Token)',
+      webhookSecretLabel: 'Webhook Secret ou Admin Token (Opcional)',
       webhookSecretPlaceholder: 'whsec_... ou shpat_...',
     },
     icon: <ShoppingBag className="w-5 h-5 text-lime-400" />,
-  },
-  {
-    provider: 'WIX',
-    title: 'Wix Stores / Wix eCommerce (EUA)',
-    tag: 'Alternativa à Shopify',
-    isEssential: false,
-    shortDesc: 'Conecta sua loja Wix americana via Automações/Webhook ou API Key (Taxa: 2.9% + $0.30).',
-    docsUrl: 'https://manage.wix.com/',
-    docsLabel: 'Abrir Painel Wix',
-    webhookEndpointPath: '/api/webhooks/wix',
-    stepByStepTutorial: [
-      '1. No painel do seu site Wix, acesse "Automations" (Automações) → "+ New Automation".',
-      '2. Em Trigger (Gatilho), escolha "Wix Stores → Order Paid" (Pedido Pago).',
-      '3. Em Action (Ação), escolha "Send via webhook" e cole o Link de Webhook abaixo.',
-      '4. Digite o nome/domínio do seu site Wix abaixo e clique em "Testar & Salvar".',
-    ],
-    fields: {
-      accountIdLabel: 'Domínio ou Site ID da Loja Wix',
-      accountIdPlaceholder: 'minhaloja.wixsite.com ou Site ID',
-      webhookSecretLabel: 'Wix API Key ou Segredo Webhook (Opcional)',
-      webhookSecretPlaceholder: 'IST.... ou segredo opcional',
-    },
-    icon: <ShoppingBag className="w-5 h-5 text-cyan-400" />,
   },
   {
     provider: 'META_ADS',
@@ -261,6 +239,7 @@ export default function Module0Setup({
   >({});
 
   const [userProfileName, setUserProfileName] = useState<string>('Gabriel (Operação Principal)');
+  const [vaultSnapshot, setVaultSnapshot] = useState<StoredCredentialsVault>({});
   const [backupToast, setBackupToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
@@ -272,36 +251,84 @@ export default function Module0Setup({
   const getSavedCred = (provider: string) =>
     credentials.find((c) => c.provider === provider);
 
-  // Auto-hidratação a partir do LocalStorage Vault e sincronização com backend
+  // Auto-hidratação completa (incluindo Kiwify e Shopify que usam webhookSecret/accountId sem apiKey)
   useEffect(() => {
     setUserProfileName(getStoredProfileName());
     const vault = getStoredCredentialsVault();
+    setVaultSnapshot(vault);
+
     if (Object.keys(vault).length > 0) {
       setFormState((prev) => {
         const merged: any = { ...prev };
         for (const [p, val] of Object.entries(vault)) {
-          if (val.apiKey && !merged[p]?.apiKey) {
+          if (p === 'WIX') continue;
+          const hasAny = Boolean(
+            val.apiKey || val.accountId || val.pixelId || val.webhookSecret || val.isVerified
+          );
+          if (hasAny) {
             merged[p] = {
-              apiKey: val.apiKey,
-              accountId: val.accountId || '',
-              pixelId: val.pixelId || '',
-              webhookSecret: val.webhookSecret || '',
+              apiKey: prev[p]?.apiKey ?? val.apiKey ?? '',
+              accountId: prev[p]?.accountId ?? val.accountId ?? '',
+              pixelId: prev[p]?.pixelId ?? val.pixelId ?? '',
+              webhookSecret: prev[p]?.webhookSecret ?? val.webhookSecret ?? '',
             };
           }
         }
         return merged;
       });
-
-      // Se o backend ainda não tiver credenciais verificadas, sincroniza o cofre silenciosamente
-      if (credentials.length === 0) {
-        syncVaultToBackend().then(({ synced }) => {
-          if (synced > 0) {
-            onRefresh();
-          }
-        });
-      }
     }
   }, []);
+
+  // Espelha credenciais verificadas do backend para o cofre local e re-sincroniza se faltar alguma no backend
+  useEffect(() => {
+    const vault = getStoredCredentialsVault();
+    let vaultUpdated = false;
+
+    for (const c of credentials) {
+      if (c.provider === 'WIX') continue;
+      if (c.isVerified) {
+        const currentVault = vault[c.provider];
+        if (
+          !currentVault?.isVerified ||
+          (c.webhookSecret && !currentVault?.webhookSecret) ||
+          (c.apiKey && !currentVault?.apiKey)
+        ) {
+          saveCredentialToVault(c.provider, {
+            apiKey: c.apiKey || currentVault?.apiKey || '',
+            accountId: c.accountId || currentVault?.accountId || '',
+            pixelId: c.pixelId || currentVault?.pixelId || '',
+            webhookSecret: c.webhookSecret || currentVault?.webhookSecret || '',
+            accountName: c.accountName || currentVault?.accountName || '',
+            isVerified: true,
+          });
+          vaultUpdated = true;
+        }
+      }
+    }
+
+    if (vaultUpdated) {
+      setVaultSnapshot(getStoredCredentialsVault());
+    }
+
+    // Verifica se existe algum provider salvo/verificado no cofre local que sumiu do backend (cold start)
+    const latestVault = getStoredCredentialsVault();
+    const missingOnBackend = Object.entries(latestVault).some(([prov, v]) => {
+      if (prov === 'WIX') return false;
+      const hasData = Boolean(
+        v?.apiKey || v?.webhookSecret || v?.accountId || v?.pixelId || v?.isVerified
+      );
+      if (!hasData || !v?.isVerified) return false;
+      return !credentials.some((c) => c.provider === prov && c.isVerified);
+    });
+
+    if (missingOnBackend) {
+      syncVaultToBackend().then(({ synced }) => {
+        if (synced > 0) {
+          onRefresh();
+        }
+      });
+    }
+  }, [credentials, onRefresh]);
 
   const handleFieldChange = (
     provider: string,
@@ -309,11 +336,17 @@ export default function Module0Setup({
     value: string
   ) => {
     const existing = getSavedCred(provider);
+    const vaultItem = vaultSnapshot[provider];
     const updated = {
-      apiKey: formState[provider]?.apiKey ?? existing?.apiKey ?? '',
-      accountId: formState[provider]?.accountId ?? existing?.accountId ?? '',
-      pixelId: formState[provider]?.pixelId ?? existing?.pixelId ?? '',
-      webhookSecret: formState[provider]?.webhookSecret ?? existing?.webhookSecret ?? '',
+      apiKey: formState[provider]?.apiKey ?? existing?.apiKey ?? vaultItem?.apiKey ?? '',
+      accountId:
+        formState[provider]?.accountId ?? existing?.accountId ?? vaultItem?.accountId ?? '',
+      pixelId: formState[provider]?.pixelId ?? existing?.pixelId ?? vaultItem?.pixelId ?? '',
+      webhookSecret:
+        formState[provider]?.webhookSecret ??
+        existing?.webhookSecret ??
+        vaultItem?.webhookSecret ??
+        '',
       [field]: value,
     };
     setFormState((prev) => ({
@@ -322,6 +355,7 @@ export default function Module0Setup({
     }));
     // Salva instantaneamente no LocalStorage para nunca perder dados ao fechar
     saveCredentialToVault(provider, updated);
+    setVaultSnapshot(getStoredCredentialsVault());
   };
 
   const handleCopyWebhook = (path: string, provider: string) => {
@@ -369,11 +403,13 @@ export default function Module0Setup({
         }
         // Recarrega do cofre
         const vault = getStoredCredentialsVault();
+        setVaultSnapshot(vault);
         setFormState((prev) => {
           const merged: any = { ...prev };
           for (const [p, val] of Object.entries(vault)) {
+            if (p === 'WIX') continue;
             merged[p] = {
-              apiKey: val.apiKey,
+              apiKey: val.apiKey || '',
               accountId: val.accountId || '',
               pixelId: val.pixelId || '',
               webhookSecret: val.webhookSecret || '',
@@ -411,15 +447,22 @@ export default function Module0Setup({
     });
 
     const existing = getSavedCred(provider);
+    const vaultItem = vaultSnapshot[provider];
     const values = {
-      apiKey: formState[provider]?.apiKey ?? existing?.apiKey ?? '',
-      accountId: formState[provider]?.accountId ?? existing?.accountId ?? '',
-      pixelId: formState[provider]?.pixelId ?? existing?.pixelId ?? '',
-      webhookSecret: formState[provider]?.webhookSecret ?? existing?.webhookSecret ?? '',
+      apiKey: formState[provider]?.apiKey ?? existing?.apiKey ?? vaultItem?.apiKey ?? '',
+      accountId:
+        formState[provider]?.accountId ?? existing?.accountId ?? vaultItem?.accountId ?? '',
+      pixelId: formState[provider]?.pixelId ?? existing?.pixelId ?? vaultItem?.pixelId ?? '',
+      webhookSecret:
+        formState[provider]?.webhookSecret ??
+        existing?.webhookSecret ??
+        vaultItem?.webhookSecret ??
+        '',
     };
 
-    // Salva no vault local preventivamente
+    // Salva os campos digitados no vault local preventivamente
     saveCredentialToVault(provider, values);
+    setVaultSnapshot(getStoredCredentialsVault());
 
     try {
       const res = await fetch('/api/settings/credentials', {
@@ -442,10 +485,15 @@ export default function Module0Setup({
           ...prev,
           [provider]: {
             type: 'success',
-            message: `Verificado: ${data.credential?.accountName}`,
+            message: `Salvo & Verificado: ${data.credential?.accountName}`,
           },
         }));
-        saveCredentialToVault(provider, { ...values, isVerified: true });
+        saveCredentialToVault(provider, {
+          ...values,
+          accountName: data.credential?.accountName,
+          isVerified: true,
+        });
+        setVaultSnapshot(getStoredCredentialsVault());
         await onRefresh();
       }
     } catch (err: any) {
@@ -461,8 +509,11 @@ export default function Module0Setup({
     }
   };
 
-  const isOpenAiConnected = Boolean(getSavedCred('OPENAI')?.isVerified);
-  const connectedCount = credentials.filter((c) => c.isVerified).length;
+  const isProviderConnected = (provider: string) =>
+    Boolean(getSavedCred(provider)?.isVerified || vaultSnapshot[provider]?.isVerified);
+
+  const isOpenAiConnected = isProviderConnected('OPENAI');
+  const connectedCount = PROVIDERS.filter((p) => isProviderConnected(p.provider)).length;
 
   return (
     <div className="space-y-5">
@@ -587,11 +638,23 @@ export default function Module0Setup({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {PROVIDERS.map((cfg) => {
           const saved = getSavedCred(cfg.provider);
-          const current = formState[cfg.provider] || {
-            apiKey: saved?.apiKey || '',
-            accountId: saved?.accountId || '',
-            pixelId: saved?.pixelId || '',
-            webhookSecret: saved?.webhookSecret || '',
+          const vaultItem = vaultSnapshot[cfg.provider];
+          const isActive = Boolean(saved?.isVerified || vaultItem?.isVerified);
+          const displayAccountName = saved?.accountName || vaultItem?.accountName || '';
+          const current = {
+            apiKey: formState[cfg.provider]?.apiKey ?? saved?.apiKey ?? vaultItem?.apiKey ?? '',
+            accountId:
+              formState[cfg.provider]?.accountId ??
+              saved?.accountId ??
+              vaultItem?.accountId ??
+              '',
+            pixelId:
+              formState[cfg.provider]?.pixelId ?? saved?.pixelId ?? vaultItem?.pixelId ?? '',
+            webhookSecret:
+              formState[cfg.provider]?.webhookSecret ??
+              saved?.webhookSecret ??
+              vaultItem?.webhookSecret ??
+              '',
           };
           const isTesting = testingProvider === cfg.provider;
           const fb = feedback[cfg.provider];
@@ -604,7 +667,7 @@ export default function Module0Setup({
               className={`rounded-2xl border p-4 sm:p-5 flex flex-col justify-between transition min-w-0 ${
                 cfg.isEssential ? 'md:col-span-2' : ''
               } ${
-                saved?.isVerified
+                isActive
                   ? 'border-emerald-500/40 bg-slate-900/90'
                   : cfg.isEssential
                   ? 'border-emerald-500/30 bg-gradient-to-r from-emerald-950/20 via-slate-900 to-slate-900'
@@ -636,7 +699,7 @@ export default function Module0Setup({
                   </div>
 
                   <div className="self-start sm:self-auto shrink-0">
-                    {saved?.isVerified ? (
+                    {isActive ? (
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                         <CheckCircle2 className="w-3.5 h-3.5" />
                         Ativo
@@ -702,23 +765,27 @@ export default function Module0Setup({
                   )}
                 </div>
 
-                {/* Link de Webhook Compacto */}
+                {/* Link de Webhook Compacto (Sem Corte Visual) */}
                 {cfg.webhookEndpointPath && (
-                  <div className="flex items-center gap-2 bg-slate-950 border border-slate-800/90 rounded-xl px-3 py-1.5 min-w-0">
-                    <span className="text-[11px] text-slate-400 shrink-0">Webhook:</span>
-                    <code className="text-[11px] text-emerald-300 truncate flex-1 min-w-0">
-                      {origin}
-                      {cfg.webhookEndpointPath}
-                    </code>
+                  <div className="flex items-center justify-between gap-2 bg-slate-950 border border-slate-800/90 rounded-xl px-3 py-2 min-w-0">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 block">
+                        URL do Webhook:
+                      </span>
+                      <code className="text-[11px] font-mono text-emerald-300 break-all select-all block">
+                        {origin}
+                        {cfg.webhookEndpointPath}
+                      </code>
+                    </div>
                     <button
                       type="button"
                       onClick={() =>
                         handleCopyWebhook(cfg.webhookEndpointPath!, cfg.provider)
                       }
-                      className="text-[11px] font-semibold text-slate-300 hover:text-white inline-flex items-center gap-1 shrink-0"
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] font-semibold text-slate-200 hover:text-white inline-flex items-center gap-1 shrink-0"
                     >
                       <Copy className="w-3 h-3" />
-                      {copiedWebhook === cfg.provider ? 'Copiado' : 'Copiar'}
+                      {copiedWebhook === cfg.provider ? 'Copiado!' : 'Copiar'}
                     </button>
                   </div>
                 )}
@@ -800,9 +867,27 @@ export default function Module0Setup({
 
                   {cfg.fields.webhookSecretLabel && (
                     <div className={cfg.fields.accountIdLabel ? '' : 'sm:col-span-2'}>
-                      <label className="block text-[11px] font-medium text-slate-300 mb-1">
-                        {cfg.fields.webhookSecretLabel}
-                      </label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[11px] font-medium text-slate-300">
+                          {cfg.fields.webhookSecretLabel}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowSecret((prev) => ({
+                              ...prev,
+                              [cfg.provider]: !prev[cfg.provider],
+                            }))
+                          }
+                          className="text-[11px] text-slate-500 hover:text-slate-300 inline-flex items-center gap-1"
+                        >
+                          {secretVisible ? (
+                            <EyeOff className="w-3 h-3" />
+                          ) : (
+                            <Eye className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
                       <input
                         type={secretVisible ? 'text' : 'password'}
                         value={current.webhookSecret}
@@ -833,13 +918,13 @@ export default function Module0Setup({
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span className="truncate">{fb.message}</span>
                     </span>
-                  ) : saved?.isVerified && saved.accountName ? (
-                    <span className="text-[11px] text-slate-400 truncate block">
-                      {saved.accountName}
+                  ) : isActive && displayAccountName ? (
+                    <span className="text-[11px] text-emerald-400/90 font-medium truncate block">
+                      ✓ {displayAccountName}
                     </span>
                   ) : (
                     <span className="text-[11px] text-slate-600">
-                      Validação via requisição HTTP real
+                      Salvo automaticamente neste computador
                     </span>
                   )}
                 </div>

@@ -14,6 +14,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { CreativeData, ProductData } from '@/types/autopilot';
+import { removeCreativeFromVault } from '@/lib/storage-persistence';
 
 interface Module2CopywritingProps {
   products: ProductData[];
@@ -145,6 +146,7 @@ export default function Module2Copywriting({
 
   const handleDeleteCreative = async (id: string) => {
     await fetch(`/api/creatives?id=${id}`, { method: 'DELETE' });
+    removeCreativeFromVault(id);
     await onRefresh();
   };
 

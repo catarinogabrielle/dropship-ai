@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       getRealUsdBrlRate(),
       prisma.automationLog.findMany({
         where: {
-          module: { in: ['WEBHOOK_KIWIFY', 'WEBHOOK_SHOPIFY', 'WEBHOOK_WIX', 'META_CAPI'] },
+          module: { in: ['WEBHOOK_KIWIFY', 'WEBHOOK_SHOPIFY', 'META_CAPI'] },
         },
         orderBy: { createdAt: 'desc' },
         take: 25,

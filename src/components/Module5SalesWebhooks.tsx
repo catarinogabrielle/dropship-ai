@@ -59,7 +59,6 @@ export default function Module5SalesWebhooks({
 
   const kiwifyWebhookUrl = `${origin}/api/webhooks/kiwify`;
   const shopifyWebhookUrl = `${origin}/api/webhooks/shopify`;
-  const wixWebhookUrl = `${origin}/api/webhooks/wix`;
 
   const handleCopy = (url: string, key: string) => {
     navigator.clipboard.writeText(url);
@@ -81,7 +80,6 @@ export default function Module5SalesWebhooks({
     const endpoints = [
       { key: 'kiwify', path: '/api/webhooks/kiwify' },
       { key: 'shopify', path: '/api/webhooks/shopify' },
-      { key: 'wix', path: '/api/webhooks/wix' },
     ];
 
     const results: Record<string, { ok: boolean; statusText: string; latencyMs: number }> = {};
@@ -138,7 +136,7 @@ export default function Module5SalesWebhooks({
             -US$ {summary.gatewayFeeUsd.toFixed(2)}
           </span>
           <span className="text-[11px] text-slate-500 mt-0.5 block truncate">
-            Kiwify / Shopify / Wix
+            Kiwify / Shopify
           </span>
         </div>
 
@@ -216,7 +214,7 @@ export default function Module5SalesWebhooks({
                   <Zap className="w-3 h-3" /> 1. Venda nos EUA
                 </span>
                 <p className="text-slate-300 text-[11px] leading-relaxed">
-                  Um cliente americano compra seu produto (E-book ou Físico) na Kiwify, Shopify ou Wix.
+                  Um cliente americano compra seu produto (E-book ou Físico) na Kiwify Internacional ou Shopify US.
                 </p>
               </div>
 
@@ -279,19 +277,6 @@ export default function Module5SalesWebhooks({
                   🟢 Passo a Passo Shopify
                   {expandedGuide === 'shopify' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setExpandedGuide(expandedGuide === 'wix' ? null : 'wix')}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition flex items-center gap-1.5 ${
-                    expandedGuide === 'wix'
-                      ? 'bg-cyan-500/20 border-cyan-500 text-cyan-300'
-                      : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  ⚡ Passo a Passo Wix Stores
-                  {expandedGuide === 'wix' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                </button>
               </div>
 
               {expandedGuide === 'kiwify' && (
@@ -299,10 +284,10 @@ export default function Module5SalesWebhooks({
                   <p className="font-bold text-amber-300 text-xs">Configurando o Webhook na Kiwify:</p>
                   <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
                     <li>Entre no painel da <strong>Kiwify</strong> e clique em <strong>Apps &rarr; Webhooks</strong>.</li>
-                    <li>Clique no botão verde <strong>"Criar Webhook"</strong>.</li>
+                    <li>Clique no botão verde <strong>&quot;Criar Webhook&quot;</strong>.</li>
                     <li>No campo <strong>Nome</strong>, digite: <code className="text-amber-300 font-mono">Autopilot Dólar IA</code>.</li>
                     <li>No campo <strong>URL do Webhook</strong>, cole a URL do Kiwify abaixo.</li>
-                    <li>Em <strong>Eventos</strong>, marque a caixa: <strong>"Compra aprovada"</strong>.</li>
+                    <li>Em <strong>Eventos</strong>, marque a caixa: <strong>&quot;Compra aprovada&quot;</strong>.</li>
                     <li>Clique em <strong>Salvar</strong>. Pronto! Cada venda aprovada será computada automaticamente.</li>
                   </ol>
                 </div>
@@ -314,24 +299,10 @@ export default function Module5SalesWebhooks({
                   <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
                     <li>Entre no painel da sua loja <strong>Shopify</strong> e clique em <strong>Settings (Configurações)</strong> no canto inferior esquerdo.</li>
                     <li>Clique em <strong>Notifications (Notificações)</strong> &rarr; role até o final da página até <strong>Webhooks</strong>.</li>
-                    <li>Clique em <strong>"Create webhook" (Criar webhook)</strong>.</li>
+                    <li>Clique em <strong>&quot;Create webhook&quot; (Criar webhook)</strong>.</li>
                     <li>Em <strong>Event (Evento)</strong>, selecione: <code className="text-lime-300 font-mono">Order payment (Pagamento do pedido)</code>.</li>
                     <li>Em <strong>Format (Formato)</strong>, selecione: <strong>JSON</strong>.</li>
                     <li>No campo <strong>URL</strong>, cole a URL da Shopify abaixo e clique em <strong>Save (Salvar)</strong>.</li>
-                  </ol>
-                </div>
-              )}
-
-              {expandedGuide === 'wix' && (
-                <div className="rounded-xl bg-slate-950 border border-cyan-500/30 p-3.5 space-y-1.5 text-slate-300">
-                  <p className="font-bold text-cyan-300 text-xs">Configurando o Webhook na Wix Stores / Wix Automations:</p>
-                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300">
-                    <li>Acesse o painel do seu site no <strong>Wix</strong> e clique em <strong>Automações (Automations)</strong>.</li>
-                    <li>Clique em <strong>"Nova Automação"</strong> ou <strong>"Criar do zero"</strong>.</li>
-                    <li>Em <strong>Gatilho (Trigger)</strong>, escolha <strong>Wix Stores &rarr; Pedido Pago (Order Paid)</strong>.</li>
-                    <li>Em <strong>Ação (Action)</strong>, escolha <strong>Conectar &rarr; Enviar via Webhook (Send via webhook)</strong>.</li>
-                    <li>Cole a URL do Wix abaixo no campo da URL e clique em <strong>Ativar</strong>.</li>
-                    <li>Opcional: Cole seu Site ID ou Token no Módulo 0 para puxar dados automáticos da loja.</li>
                   </ol>
                 </div>
               )}
@@ -340,8 +311,8 @@ export default function Module5SalesWebhooks({
         )}
       </div>
 
-      {/* 3 CARDS DE WEBHOOKS (KIWIFY, SHOPIFY & WIX) - URL TOTALMENTE VISÍVEL */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* 2 CARDS DE WEBHOOKS (KIWIFY & SHOPIFY) - URL TOTALMENTE VISÍVEL */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* CARD KIWIFY */}
         <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-3">
           <div className="flex items-start justify-between gap-2">
@@ -469,70 +440,6 @@ export default function Module5SalesWebhooks({
             </button>
           </div>
         </div>
-
-        {/* CARD WIX */}
-        <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-extrabold text-cyan-300 block">
-                  Webhook Wix Stores US
-                </span>
-                {webhookHealth.wix && (
-                  <span
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      webhookHealth.wix.ok
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                        : 'bg-red-500/20 text-red-300 border border-red-500/40'
-                    }`}
-                  >
-                    {webhookHealth.wix.ok ? (
-                      <>
-                        <Check className="w-2.5 h-2.5" /> 200 OK
-                      </>
-                    ) : (
-                      'Erro'
-                    )}
-                  </span>
-                )}
-              </div>
-              <span className="text-[11px] text-slate-400 block mt-0.5">
-                Taxa: 2.9% + US$ 0.30 • Loja Wix / Wix eCommerce
-              </span>
-            </div>
-            <a
-              href="https://manage.wix.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs font-bold text-cyan-300 hover:underline inline-flex items-center gap-1 shrink-0"
-            >
-              Abrir Wix <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-
-          <div className="space-y-2">
-            <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-mono text-emerald-300 break-all select-all leading-relaxed">
-              {wixWebhookUrl}
-            </div>
-
-            <button
-              onClick={() => handleCopy(wixWebhookUrl, 'wix')}
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 py-2 text-xs font-extrabold text-white transition shadow-sm"
-            >
-              {copiedEndpoint === 'wix' ? (
-                <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  URL Copiada com Sucesso!
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  Copiar Link Wix
-                </>
-              )}
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* TABELA DE VENDAS REAIS */}
@@ -558,7 +465,7 @@ export default function Module5SalesWebhooks({
             <Webhook className="w-8 h-8 text-slate-600 mx-auto mb-2" />
             <h4 className="text-sm font-bold text-white">Nenhuma venda recebida ainda</h4>
             <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 leading-relaxed">
-              Assim que a Kiwify, Shopify ou Wix disparar o webhook de compra aprovada, a venda aparecerá nesta tabela automaticamente convertida em Dólar e Reais.
+              Assim que a Kiwify Internacional ou a Shopify US disparar o webhook de compra aprovada, a venda aparecerá nesta tabela automaticamente convertida em Dólar e Reais.
             </p>
           </div>
         ) : (

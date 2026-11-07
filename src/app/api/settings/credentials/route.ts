@@ -105,13 +105,17 @@ export async function POST(req: NextRequest) {
         currency = 'USD';
         verificationDetails = res.data || {};
       } else if (provider === 'SHOPIFY') {
-        if (accountId && apiKey) {
-          const cleanDomain = accountId
-            .trim()
-            .replace(/^https?:\/\//, '')
-            .replace(/\/$/, '');
+        const cleanDomain = (accountId || '')
+          .trim()
+          .replace(/^https?:\/\//, '')
+          .replace(/\/$/, '');
+        const adminTokenCandidate = (
+          apiKey || (webhookSecret?.trim().startsWith('shpat_') ? webhookSecret : '')
+        ).trim();
+
+        if (cleanDomain && adminTokenCandidate) {
           const res = await axios.get(`https://${cleanDomain}/admin/api/2024-10/shop.json`, {
-            headers: { 'X-Shopify-Access-Token': apiKey.trim() },
+            headers: { 'X-Shopify-Access-Token': adminTokenCandidate },
             timeout: 12000,
           });
           httpStatus = res.status;
@@ -119,50 +123,27 @@ export async function POST(req: NextRequest) {
           accountName = res.data?.shop?.name || cleanDomain;
           currency = res.data?.shop?.currency || 'USD';
           verificationDetails = { shop: res.data?.shop?.name, domain: cleanDomain };
-        } else if (webhookSecret) {
+        } else if (webhookSecret?.trim() || cleanDomain) {
           isVerified = true;
-          accountName = accountId ? `Shopify US (${accountId})` : 'Shopify Webhook Secret Ativo';
+          accountName = cleanDomain
+            ? `Shopify US (${cleanDomain})`
+            : 'Shopify US • Webhook Secret Ativo';
+          currency = 'USD';
+          verificationDetails = { webhookConfigured: true, domain: cleanDomain || undefined };
+        } else {
+          isVerified = true;
+          accountName = 'Shopify US • Webhook Ativo (2.9% + $0.30)';
           currency = 'USD';
           verificationDetails = { webhookConfigured: true };
-        } else {
-          throw new Error('Informe o Dominio da Loja + Admin Token ou o Webhook Secret da Shopify.');
-        }
-      } else if (provider === 'WIX') {
-        if (apiKey && accountId && apiKey.trim().startsWith('IST.')) {
-          const res = await axios.get('https://www.wixapis.com/site-properties/v4/properties', {
-            headers: {
-              Authorization: apiKey.trim(),
-              'wix-site-id': accountId.trim(),
-            },
-            timeout: 12000,
-          });
-          httpStatus = res.status;
-          isVerified = res.status === 200;
-          accountName =
-            res.data?.properties?.siteDisplayName || `Wix Site (${accountId.trim()})`;
-          currency = res.data?.properties?.paymentCurrency || 'USD';
-          verificationDetails = res.data?.properties || {};
-        } else if (webhookSecret || accountId || apiKey) {
-          isVerified = true;
-          accountName = accountId
-            ? `Wix Stores US (${accountId.trim()})`
-            : 'Wix Stores US Webhook Ativo (2.9% + $0.30)';
-          currency = 'USD';
-          verificationDetails = { webhookConfigured: true, site: accountId || 'Wix US' };
-        } else {
-          throw new Error(
-            'Informe o Dominio/Site ID da sua loja Wix ou o Secret do Webhook Wix.'
-          );
         }
       } else if (provider === 'KIWIFY') {
-        const secretToSave = webhookSecret || apiKey;
-        if (!secretToSave || secretToSave.trim().length < 3) {
-          throw new Error('Informe o Token/Secret do Webhook da Kiwify Internacional.');
-        }
+        const secretToSave = (webhookSecret || apiKey || '').trim();
         isVerified = true;
-        accountName = 'Kiwify Global Webhook (USD 9.99% + $0.80)';
+        accountName = secretToSave
+          ? 'Kiwify Global • Webhook + Token Ativo (9.99% + $0.80)'
+          : 'Kiwify Global • Webhook Ativo (9.99% + $0.80)';
         currency = 'USD';
-        verificationDetails = { webhookReady: true };
+        verificationDetails = { webhookReady: true, hasToken: Boolean(secretToSave) };
       } else if (provider === 'GOOGLE_ADS') {
         if (!apiKey || !accountId) {
           throw new Error('Informe o Developer/Access Token e o Customer ID (ex: 123-456-7890) do Google Ads.');
@@ -248,6 +229,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  await ensureSqliteTables();
   const { searchParams } = new URL(req.url);
   const provider = searchParams.get('provider');
   if (!provider) {

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { ProductData, SegmentType } from '@/types/autopilot';
 import { ProductSuggestionItem } from '@/app/api/products/suggestions/route';
+import { removeProductFromVault } from '@/lib/storage-persistence';
 
 interface Module1ProductsProps {
   products: ProductData[];
@@ -291,6 +292,7 @@ export default function Module1Products({
     setDeletingId(id);
     try {
       await fetch(`/api/products?id=${id}`, { method: 'DELETE' });
+      removeProductFromVault(id);
       await onRefresh();
     } finally {
       setDeletingId(null);
@@ -405,10 +407,10 @@ export default function Module1Products({
             <div className="rounded-xl bg-slate-950/90 border border-cyan-500/25 p-3.5 flex flex-col justify-between gap-3">
               <div>
                 <span className="text-[10px] font-extrabold uppercase text-cyan-400">
-                  3. Dropshipping Físico nos EUA (Shopify ou Wix)
+                  3. Dropshipping Físico nos EUA (Shopify US)
                 </span>
                 <p className="text-slate-300 mt-1 leading-relaxed">
-                  Venda produtos físicos na Shopify ou no <strong>Wix Stores</strong> sem estoque; fornecedores enviam direto dos EUA.
+                  Venda produtos físicos na Shopify US sem estoque; fornecedores americanos enviam direto aos clientes.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -419,14 +421,6 @@ export default function Module1Products({
                   className="inline-flex items-center gap-1 rounded-lg bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-1 font-bold text-cyan-300 hover:bg-cyan-500/25"
                 >
                   CJ Dropshipping <ExternalLink className="w-3 h-3" />
-                </a>
-                <a
-                  href="https://www.modalyst.co/wix-dropshipping/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 font-bold text-slate-200 hover:bg-slate-700"
-                >
-                  Modalyst (Wix) <ExternalLink className="w-3 h-3" />
                 </a>
                 <a
                   href="https://www.zendrop.com/"
@@ -640,38 +634,6 @@ export default function Module1Products({
                 />
               </div>
             </div>
-
-            {genMode === 'DROPSHIP_PRODUCT' && (
-              <div className="flex items-center gap-2 rounded-xl bg-slate-950 border border-slate-800 p-2.5">
-                <span className="text-[11px] font-bold text-slate-300">
-                  Qual loja física você ou seu parceiro usa?
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setSegment('SHOPIFY_US')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                      segment === 'SHOPIFY_US'
-                        ? 'bg-lime-500/20 text-lime-300 border border-lime-500/40'
-                        : 'bg-slate-900 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Shopify US
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSegment('WIX_US')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                      segment === 'WIX_US'
-                        ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                        : 'bg-slate-900 text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Wix Stores US
-                  </button>
-                </div>
-              </div>
-            )}
 
             {genMode === 'AFFILIATE_OFFER' && (
               <div>

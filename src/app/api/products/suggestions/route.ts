@@ -12,7 +12,7 @@ export interface ProductSuggestionItem {
   cost: string;
   shipping: string;
   mode: 'CREATE_EBOOK' | 'AFFILIATE_OFFER' | 'DROPSHIP_PRODUCT';
-  segment: 'KIWIFY_GLOBAL' | 'SHOPIFY_US' | 'WIX_US';
+  segment: 'KIWIFY_GLOBAL' | 'SHOPIFY_US';
   whyItConverts: string;
 }
 
@@ -191,7 +191,7 @@ const CURATED_SUGGESTIONS_POOL: ProductSuggestionItem[] = [
     whyItConverts: 'Mais de 100 milhões de americanos usam óculos de leitura e procuram manter a visão nítida.',
   },
 
-  // --- DROPSHIPPING FÍSICO (SHOPIFY & WIX STORES US) ---
+  // --- DROPSHIPPING FÍSICO (SHOPIFY US) ---
   {
     label: '💆 Almofada Tração Cervical Térmica',
     title: 'Ergonomic Cervical Spine Decompression Pillow with Heat',
@@ -202,7 +202,7 @@ const CURATED_SUGGESTIONS_POOL: ProductSuggestionItem[] = [
     cost: '14.50',
     shipping: '4.50',
     mode: 'DROPSHIP_PRODUCT',
-    segment: 'WIX_US',
+    segment: 'SHOPIFY_US',
     whyItConverts: 'Vídeos de demonstração (efeito "antes e depois" da coluna estalando) viralizam instantaneamente no TikTok.',
   },
   {
@@ -215,7 +215,7 @@ const CURATED_SUGGESTIONS_POOL: ProductSuggestionItem[] = [
     cost: '13.80',
     shipping: '3.90',
     mode: 'DROPSHIP_PRODUCT',
-    segment: 'WIX_US',
+    segment: 'SHOPIFY_US',
     whyItConverts: 'Substitui tratamentos estéticos de US$ 200 por sessão com visual luxuoso e unboxing irresistível.',
   },
   {
@@ -241,7 +241,7 @@ const CURATED_SUGGESTIONS_POOL: ProductSuggestionItem[] = [
     cost: '16.50',
     shipping: '5.50',
     mode: 'DROPSHIP_PRODUCT',
-    segment: 'WIX_US',
+    segment: 'SHOPIFY_US',
     whyItConverts: 'Apelo visual de limpeza satisfatória: o sujeira saindo em segundos gera cliques com CTR acima de 4%.',
   },
   {
@@ -267,7 +267,7 @@ const CURATED_SUGGESTIONS_POOL: ProductSuggestionItem[] = [
     cost: '11.50',
     shipping: '4.00',
     mode: 'DROPSHIP_PRODUCT',
-    segment: 'WIX_US',
+    segment: 'SHOPIFY_US',
     whyItConverts: 'Americanos passam horas no carro todos os dias; limpeza fácil e rápida em formato compacto é campeã de vendas.',
   },
 ];
@@ -334,7 +334,7 @@ export async function POST(req: NextRequest) {
         const openai = new OpenAI({ apiKey });
         const systemPrompt = `You are a high-level Direct-Response E-commerce & Dropshipping Strategist specialized in the American consumer market (United States).
 Your task is to generate 5 brand-new, distinct, winning and validated product/offer concepts tailored for the selected mode:
-- Mode: ${mode} (CREATE_EBOOK = digital guide on Kiwify, AFFILIATE_OFFER = affiliate offer on ClickBank/Digistore24, DROPSHIP_PRODUCT = physical product on Shopify/Wix)
+- Mode: ${mode} (CREATE_EBOOK = digital guide on Kiwify, AFFILIATE_OFFER = affiliate offer on ClickBank/Digistore24, DROPSHIP_PRODUCT = physical product on Shopify US)
 - Target Platform: ${targetPlatform}
 - User's Niche/Keyword/Theme: "${nicheTheme || 'Top high-margin US trending problems in health, pets, beauty, home or pain relief'}"
 

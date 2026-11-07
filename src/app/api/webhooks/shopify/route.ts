@@ -38,12 +38,12 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     const payload = JSON.parse(rawBody || '{}');
 
-    // Valida assinatura HMAC-SHA256 da Shopify se webhookSecret estiver configurado
+    // Valida assinatura HMAC-SHA256 da Shopify se webhookSecret estiver configurado (e nao for um Admin Token shpat_)
     const shopifyCred = await prisma.apiCredential.findUnique({ where: { provider: 'SHOPIFY' } });
-    const configuredSecret = shopifyCred?.webhookSecret;
+    const configuredSecret = shopifyCred?.webhookSecret?.trim();
     const hmacHeader = req.headers.get('x-shopify-hmac-sha256');
 
-    if (configuredSecret && hmacHeader) {
+    if (configuredSecret && !configuredSecret.startsWith('shpat_') && hmacHeader) {
       const computedHmac = crypto
         .createHmac('sha256', configuredSecret)
         .update(rawBody, 'utf8')
