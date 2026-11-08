@@ -112,6 +112,19 @@ export function saveCredentialToVault(
   }
 }
 
+export function removeCredentialFromVault(provider: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const vault = getStoredCredentialsVault();
+    if (vault[provider]) {
+      delete vault[provider];
+      localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
+    }
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Retorna um pacote leve e limpo com todas as credenciais salvas/digitadas no cofre local
  * para hidratar qualquer rota Serverless (/api/products/generate, /api/creatives/generate, /api/video/render, etc.)

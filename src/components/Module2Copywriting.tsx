@@ -60,6 +60,7 @@ export default function Module2Copywriting({
   const [generating, setGenerating] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [generationSuccessMsg, setGenerationSuccessMsg] = useState<string | null>(null);
   const [savedNoticeId, setSavedNoticeId] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [edits, setEdits] = useState<Record<string, Partial<CreativeData>>>({});
@@ -83,6 +84,7 @@ export default function Module2Copywriting({
     }
     setGenerating(true);
     setError(null);
+    setGenerationSuccessMsg(null);
 
     try {
       const selectedProduct = products.find((p) => p.id === selectedProductId);
@@ -97,12 +99,18 @@ export default function Module2Copywriting({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || 'Falha ao gerar estruturas de copy na OpenAI.');
+        setError(data.error || 'Falha ao gerar estruturas de copy em inglês.');
       } else {
         if (Array.isArray(data.creatives) && data.creatives.length > 0) {
           saveCreativesToVault(data.creatives);
           onCreativesUpdated?.(data.creatives);
         }
+        const engineLabel = data.aiEngineUsed || 'IA Gratuita ($0.00)';
+        setGenerationSuccessMsg(
+          data.fallbackNotice
+            ? `${data.fallbackNotice} Motor usado: ${engineLabel}`
+            : `3 campanhas em inglês geradas com sucesso ($0.00) via ${engineLabel}!`
+        );
         await onRefresh();
       }
     } catch (err: any) {
@@ -185,10 +193,10 @@ export default function Module2Copywriting({
         <div className="space-y-0.5">
           <h2 className="text-base font-extrabold text-white flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-emerald-400" />
-            Gerador de Copy & Roteiros Nativos (EUA)
+            Gerador de Copy & Roteiros Nativos (EUA • Grátis)
           </h2>
           <p className="text-xs text-slate-400">
-            Gera 3 ângulos de venda em inglês americano (com tradução em português ao lado).
+            Gera 3 ângulos de venda em inglês americano a R$ 0,00 (com tradução em português e dica de vídeo ao lado).
           </p>
         </div>
 
@@ -217,17 +225,24 @@ export default function Module2Copywriting({
             {generating ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Gerando 3 Campanhas (~12s)...
+                Gerando 3 Campanhas Grátis (~10s)...
               </>
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5" />
-                Gerar 3 Campanhas em Inglês
+                Gerar 3 Campanhas em Inglês (Grátis)
               </>
             )}
           </button>
         </div>
       </div>
+
+      {generationSuccessMsg && (
+        <div className="rounded-xl bg-emerald-950/60 border border-emerald-500/40 p-3 text-xs text-emerald-200 flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{generationSuccessMsg}</span>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-xl bg-red-950/60 border border-red-500/40 p-3 text-xs text-red-200 flex items-center gap-2">
@@ -279,7 +294,7 @@ export default function Module2Copywriting({
           <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 mb-4">
             {products.length === 0
               ? 'Crie ou importe um produto no Passo 1 para liberar o gerador de copy.'
-              : 'Selecione seu produto acima e clique em "Gerar 3 Campanhas em Inglês".'}
+              : 'Selecione seu produto acima e clique em "Gerar 3 Campanhas em Inglês (Grátis)".'}
           </p>
           {products.length === 0 && (
             <button

@@ -48,8 +48,12 @@ export async function GET() {
       getRealUsdBrlRate(),
     ]);
 
-    // Calculo dinamico e 100% real da Barra de Progresso de Ativacao (0% a 100%)
-    const step1OpenAiVerified = credentials.some((c) => c.provider === 'OPENAI' && c.isVerified);
+    // Calculo dinamico e real da Barra de Progresso de Ativacao (0% a 100%)
+    // IA Gratuita ($0.00) ja vem pronta de fabrica; OpenAI, Gemini e Groq tambem sao aceitos!
+    const customAiProvider = credentials.find(
+      (c) => (c.provider === 'GEMINI' || c.provider === 'GROQ' || c.provider === 'OPENAI') && c.isVerified
+    );
+    const step1AiReady = true;
     const step2ProductSaved = productsCount > 0;
     const step3CreativeGenerated = creativesCount > 0;
     const step4AdsOrTiktokVerified = credentials.some(
@@ -66,8 +70,10 @@ export async function GET() {
       {
         id: 1,
         weight: 20,
-        label: 'Chave OpenAI validada no banco',
-        completed: step1OpenAiVerified,
+        label: customAiProvider
+          ? `Motor IA conectado (${customAiProvider.provider})`
+          : 'Modo IA Gratuita ($0,00) pronto para usar',
+        completed: step1AiReady,
         tabIndex: 0,
       },
       {

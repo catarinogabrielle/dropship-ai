@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import OpenAI from 'openai';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
-import { resolveProviderCredential } from '@/lib/server-vault';
+import { generateStructuredJsonWithFallback } from '@/lib/free-ai';
+import { buildFreeProductFallback } from '@/lib/free-fallbacks';
 
 export const maxDuration = 60;
 
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Download real do HTML da URL usando axios + cheerio (com fallback automatico via Jina Reader para paginas com Cloudflare/anti-bot)
+    // 1. Download real do HTML da URL usando axios + cheerio (com fallback automatico via Jina Reader)
     let htmlContent = '';
     let fallbackReaderText = '';
     try {
@@ -89,31 +89,20 @@ export async function POST(req: NextRequest) {
       .join('\n')
       .slice(0, 14000);
 
-    // 2. Obtem a chave real da OpenAI do banco, cofre sincronizado ou .env
-    const { apiKey } = await resolveProviderCredential(
-      'OPENAI',
-      _vaultCredentials,
-      'OPENAI_API_KEY'
-    );
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            'OPENAI_API_KEY nao configurada. Va ate o Passo 0 (Conexoes & Contas), cole sua chave (sk-...) e clique em "Testar & Salvar".',
-        },
-        { status: 400 }
-      );
-    }
+    const cleanPriceUsd = Number(priceUsd);
+    const cleanCostUsd = Number(costUsd || 0);
+    const cleanOrderBumpUsd = Number(orderBumpUsd || 0);
+    const cleanShippingUsd = Number(shippingUsd || 0);
 
-    // 3. Chama a API oficial da OpenAI (gpt-4o, json_object) para estruturar Avatar, 5 Dores, Mecanismo Unico e Order Bump
-    const openai = new OpenAI({ apiKey });
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are an elite US direct-response e-commerce strategist and copy chief.
+    const inferredMode =
+      segment === 'SHOPIFY_US' ? 'DROPSHIP_PRODUCT' : 'AFFILIATE_OFFER';
+
+    const aiResult = await generateStructuredJsonWithFallback<any>({
+      vaultCredentials: _vaultCredentials,
+      temperature: 0.65,
+      maxTokens: 2200,
+      validate: (p) => Boolean(p && (p.title || p.uniqueMechanism)),
+      systemPrompt: `You are an elite US direct-response e-commerce strategist and copy chief.
 Analyze the real scraped product page and return a strict JSON object with the following structure:
 {
   "title": "Clean commercial product title in English",
@@ -133,27 +122,33 @@ Analyze the real scraped product page and return a strict JSON object with the f
   "uniqueMechanism": "Detailed explanation of the product's Unique Mechanism in English (with PT-BR summary in parentheses)"
 }
 Ensure painPoints has EXACTLY 5 real pain points extracted from the product context.`,
-        },
-        {
-          role: 'user',
-          content: `Source URL: ${sourceUrl}\nSegment: ${segment}\nPrice USD: $${priceUsd}\nScraped Product Page Content:\n${rawScrapedText}`,
-        },
-      ],
+      userPrompt: `Source URL: ${sourceUrl}\nSegment: ${segment}\nPrice USD: $${cleanPriceUsd}\nScraped Product Page Content:\n${rawScrapedText.slice(
+        0,
+        8000
+      )}`,
+      fallbackBuilder: () => {
+        const fb = buildFreeProductFallback({
+          mode: inferredMode,
+          niche: metaDescription || pageTitle,
+          productIdea: pageTitle,
+          segment,
+          priceUsd: cleanPriceUsd,
+          orderBumpUsd: cleanOrderBumpUsd,
+        });
+        return {
+          title: pageTitle !== 'US Offer' ? pageTitle : fb.title,
+          avatarProfile: fb.avatarProfile,
+          painPoints: fb.painPoints,
+          uniqueMechanism: fb.uniqueMechanism,
+        };
+      },
     });
 
-    const parsed = JSON.parse(completion.choices[0].message.content || '{}');
+    const parsed = aiResult.data;
 
-    // 4. Calculo matematico exato dos indicadores financeiros (Unit Economics em USD e BRL)
-    const cleanPriceUsd = Number(priceUsd);
-    const cleanCostUsd = Number(costUsd || 0);
-    const cleanOrderBumpUsd = Number(orderBumpUsd || 0);
-    const cleanShippingUsd = Number(shippingUsd || 0);
+    // Calculo matematico exato dos indicadores financeiros (Unit Economics em USD e BRL)
     const aov = +(cleanPriceUsd + cleanOrderBumpUsd).toFixed(2);
 
-    // Taxas reais por segmento:
-    // Kiwify Internacional: 9.99% + $0.80
-    // Dropshipping Fisico EUA (Shopify US): 2.9% + $0.30
-    // TikTok Shop US: 6.0% + $0.00
     const feePercent =
       segment === 'KIWIFY_GLOBAL' ? 9.99 : segment === 'TIKTOK_SHOP' ? 6.0 : 2.9;
     const feeFixed =
@@ -172,6 +167,7 @@ Ensure painPoints has EXACTLY 5 real pain points extracted from the product cont
 
     const enrichedAvatarProfile = {
       ...(parsed.avatarProfile || {}),
+      aiEngineUsed: aiResult.engineUsed,
       unitEconomicsSummary: {
         aovUsd: aov,
         gatewayFeeUsd: gatewayFee,
@@ -207,11 +203,13 @@ Ensure painPoints has EXACTLY 5 real pain points extracted from the product cont
     await prisma.automationLog.create({
       data: {
         module: 'PRODUCT_INGEST',
-        action: 'SCRAPE_AND_OPENAI_ANALYSIS',
+        action: 'SCRAPE_AND_FREE_AI_ANALYSIS',
         targetId: product.id,
         httpStatus: 200,
         detailsJson: JSON.stringify({
           sourceUrl,
+          aiEngineUsed: aiResult.engineUsed,
+          isFreeMode: aiResult.isFreeMode,
           title: product.title,
           segment,
           aov,
@@ -224,7 +222,13 @@ Ensure painPoints has EXACTLY 5 real pain points extracted from the product cont
 
     const exchange = await getRealUsdBrlRate();
 
-    return NextResponse.json({ product, exchange });
+    return NextResponse.json({
+      product,
+      exchange,
+      aiEngineUsed: aiResult.engineUsed,
+      isFreeMode: aiResult.isFreeMode,
+      fallbackNotice: aiResult.fallbackNotice,
+    });
   } catch (error: any) {
     const message = error?.response?.data?.error?.message || error.message || 'Erro ao ingerir produto';
     return NextResponse.json({ error: message }, { status: 500 });

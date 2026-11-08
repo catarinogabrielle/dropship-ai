@@ -161,6 +161,26 @@ export default function Module4TrafficBot({
 
   return (
     <div className="space-y-5">
+      {/* AVISO ESTRATÉGIA R$ 0,00 (TRÁFEGO ORGÂNICO ANTES DE ANUNCIAR) */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/30 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="space-y-1 text-xs">
+          <strong className="text-emerald-300 font-extrabold block">
+            💡 Sem dinheiro para anúncios pagos agora? Não precisa usar esta aba ainda!
+          </strong>
+          <p className="text-slate-300 leading-relaxed">
+            Para vender com <strong className="text-white">R$ 0,00 de investimento</strong>, baixe seus vídeos <strong className="text-white">.MP4</strong> prontos na <strong className="text-cyan-300">Aba 3</strong> e poste de graça todos os dias no TikTok EUA, Instagram Reels e YouTube Shorts com o link na bio. Só volte para o Robô de Meta Ads quando já tiver lucro em Dólar para escalar!
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onNavigateTab(3)}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-3.5 py-2 text-xs font-extrabold text-white transition shrink-0"
+        >
+          Voltar para Aba 3 (Vídeos Grátis)
+          <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       {/* BARRA DE CONTROLE COMPACTA */}
       <div className="rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4 space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">

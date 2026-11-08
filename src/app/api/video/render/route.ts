@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -7,74 +6,29 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import ffmpegStatic from 'ffmpeg-static';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
-import {
-  ensureCreativeFromVault,
-  resolveProviderCredential,
-} from '@/lib/server-vault';
+import { ensureCreativeFromVault } from '@/lib/server-vault';
+import { generateEnglishVoiceoverMp3 } from '@/lib/free-tts';
 
 export const maxDuration = 60;
 
 const execFileAsync = promisify(execFile);
-
 const isServerless = Boolean(process.env.VERCEL);
 
-/**
- * Limpa possiveis marcacoes de cena entre colchetes [Scene] ou parenteses de direcao
- * para garantir que o locutor da ElevenLabs leia apenas a fala humana natural
- */
-function sanitizeSpokenScript(rawScript: string): string {
-  return rawScript
-    .replace(/\[.*?\]/g, '')
-    .replace(/\((?:scene|hook|body|cta|pause|visual).*?\)/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-async function generateElevenLabsAudio(
+async function synthesizeAndSaveAudio(
   creativeId: string,
   scriptText: string,
   voiceId: string,
   vaultCredentials?: any
 ) {
-  const { apiKey } = await resolveProviderCredential(
-    'ELEVENLABS',
+  const ffmpegBin = ffmpegStatic || 'ffmpeg';
+  const ttsResult = await generateEnglishVoiceoverMp3({
+    scriptText,
+    voiceId,
     vaultCredentials,
-    'ELEVENLABS_API_KEY'
-  );
+    ffmpegBin,
+  });
 
-  if (!apiKey) {
-    throw new Error(
-      'ELEVENLABS_API_KEY nao configurada. Salve e teste sua chave da ElevenLabs no Passo 0.'
-    );
-  }
-
-  const cleanVoiceId = voiceId || '21m00Tcm4TlvDq8ikWAM';
-  const cleanSpokenText = sanitizeSpokenScript(scriptText);
-
-  const response = await axios.post(
-    `https://api.elevenlabs.io/v1/text-to-speech/${cleanVoiceId}`,
-    {
-      text: cleanSpokenText,
-      model_id: 'eleven_multilingual_v2',
-      voice_settings: {
-        stability: 0.40,
-        similarity_boost: 0.85,
-        style: 0.35,
-        use_speaker_boost: true,
-      },
-    },
-    {
-      headers: {
-        'xi-api-key': apiKey.trim(),
-        'Content-Type': 'application/json',
-        Accept: 'audio/mpeg',
-      },
-      responseType: 'arraybuffer',
-      timeout: 45000,
-    }
-  );
-
-  const audioBuffer = Buffer.from(response.data);
+  const audioBuffer = ttsResult.audioBuffer;
   const fileName = `${creativeId}.mp3`;
 
   let publicUrlPath = '';
@@ -105,18 +59,24 @@ async function generateElevenLabsAudio(
 
   await prisma.automationLog.create({
     data: {
-      module: 'ELEVENLABS_TTS',
+      module: 'VOICEOVER_TTS',
       action: 'AUDIO_MP3_GENERATED',
       targetId: creativeId,
-      httpStatus: response.status,
+      httpStatus: ttsResult.httpStatus,
       detailsJson: JSON.stringify({
-        voiceId: cleanVoiceId,
-        bytes: response.data.byteLength,
+        voiceId,
+        ttsEngineUsed: ttsResult.ttsEngineUsed,
+        bytes: audioBuffer.byteLength,
       }),
     },
   });
 
-  return { updated, localDiskPath };
+  return {
+    updated,
+    localDiskPath,
+    ttsEngineUsed: ttsResult.ttsEngineUsed,
+    fallbackNotice: ttsResult.fallbackNotice,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -124,11 +84,11 @@ export async function POST(req: NextRequest) {
     await ensureSqliteTables();
     const contentType = req.headers.get('content-type') || '';
 
-    // MODO 1: JSON request para Geracao de Voz Real na ElevenLabs
+    // MODO 1: JSON request para Geracao de Voz (ElevenLabs se paga OU Voz Neural Americana Grátis $0.00)
     if (contentType.includes('application/json')) {
       const {
         creativeId,
-        voiceId = '21m00Tcm4TlvDq8ikWAM',
+        voiceId = 'cgSgspJ2msm6clMCkdW9',
         _vaultCredentials,
         _vaultCreative,
         _vaultProduct,
@@ -137,13 +97,17 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'creativeId obrigatorio.' }, { status: 400 });
       }
 
-      const creative = await ensureCreativeFromVault(creativeId, _vaultCreative, _vaultProduct);
+      const creative = await ensureCreativeFromVault(
+        creativeId,
+        _vaultCreative,
+        _vaultProduct
+      );
       if (!creative) {
         return NextResponse.json({ error: 'Criativo nao encontrado.' }, { status: 404 });
       }
 
-      const fullScript = `${creative.hookEn} ... ${creative.bodyEn} ... ${creative.ctaEn}`.trim();
-      const { updated } = await generateElevenLabsAudio(
+      const fullScript = `${creative.hookEn}. ${creative.bodyEn}. ${creative.ctaEn}`.trim();
+      const { updated, ttsEngineUsed, fallbackNotice } = await synthesizeAndSaveAudio(
         creative.id,
         fullScript,
         voiceId,
@@ -153,14 +117,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         creative: updated,
         audioFilePath: updated.audioFilePath,
+        ttsEngineUsed,
+        fallbackNotice,
       });
     }
 
-    // MODO 2: multipart/form-data com Upload Real de .mp4 + Merge Inteligente com Locucao via FFmpeg
+    // MODO 2: multipart/form-data com Upload Real de .mp4 (ou canvas 9:16 gratuito) + Merge via FFmpeg
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
       const creativeId = String(formData.get('creativeId') || '');
-      const voiceId = String(formData.get('voiceId') || '21m00Tcm4TlvDq8ikWAM');
+      const voiceId = String(formData.get('voiceId') || 'cgSgspJ2msm6clMCkdW9');
       const videoFile = formData.get('video') as File | null;
 
       let vaultCredentials: any = undefined;
@@ -196,14 +162,16 @@ export async function POST(req: NextRequest) {
       fs.mkdirSync(audioDir, { recursive: true });
 
       let localAudioPath = path.join(audioDir, `${creativeId}.mp3`);
+      let ttsEngineUsed = 'Áudio salvo no projeto';
+      let fallbackNotice: string | undefined;
 
       if (!fs.existsSync(localAudioPath)) {
         if (creative.audioFilePath?.startsWith('data:audio/mpeg;base64,')) {
           const b64 = creative.audioFilePath.replace('data:audio/mpeg;base64,', '');
           fs.writeFileSync(localAudioPath, Buffer.from(b64, 'base64'));
         } else {
-          const fullScript = `${creative.hookEn} ... ${creative.bodyEn} ... ${creative.ctaEn}`.trim();
-          const resAudio = await generateElevenLabsAudio(
+          const fullScript = `${creative.hookEn}. ${creative.bodyEn}. ${creative.ctaEn}`.trim();
+          const resAudio = await synthesizeAndSaveAudio(
             creative.id,
             fullScript,
             voiceId,
@@ -211,6 +179,8 @@ export async function POST(req: NextRequest) {
           );
           creative = resAudio.updated;
           localAudioPath = resAudio.localDiskPath;
+          ttsEngineUsed = resAudio.ttsEngineUsed;
+          fallbackNotice = resAudio.fallbackNotice;
         }
       }
 
@@ -223,7 +193,6 @@ export async function POST(req: NextRequest) {
         const arrayBuffer = await videoFile.arrayBuffer();
         fs.writeFileSync(rawVideoPath, Buffer.from(arrayBuffer));
 
-        // Usa -stream_loop -1 no video de fundo enviado pelo usuario
         await execFileAsync(ffmpegBin, [
           '-y',
           '-stream_loop',
@@ -248,7 +217,6 @@ export async function POST(req: NextRequest) {
           finalVideoFullPath,
         ]);
       } else {
-        // Caso o usuario nao tenha enviado arquivo .mp4, gera um video vertical 9:16 (720x1280) real com a locucao
         await execFileAsync(ffmpegBin, [
           '-y',
           '-f',
@@ -298,6 +266,7 @@ export async function POST(req: NextRequest) {
           detailsJson: JSON.stringify({
             serverless: isServerless,
             videoLoopEnabled: true,
+            ttsEngineUsed,
           }),
         },
       });
@@ -305,6 +274,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         creative: updatedCreative,
         videoFilePath: publicVideoUrl,
+        ttsEngineUsed,
+        fallbackNotice,
       });
     }
 

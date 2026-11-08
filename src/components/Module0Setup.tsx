@@ -27,12 +27,16 @@ import {
   User,
   Shield,
   Save,
+  Zap,
+  Trash2,
+  Cpu,
 } from 'lucide-react';
 import { ApiCredentialData } from '@/types/autopilot';
 import {
   StoredCredentialsVault,
   getStoredCredentialsVault,
   saveCredentialToVault,
+  removeCredentialFromVault,
   getStoredProfileName,
   saveStoredProfileName,
   downloadBackupToFile,
@@ -51,6 +55,7 @@ interface ProviderConfig {
   title: string;
   tag: string;
   isEssential: boolean;
+  isFreeHighlight?: boolean;
   shortDesc: string;
   docsUrl: string;
   docsLabel: string;
@@ -71,41 +76,78 @@ interface ProviderConfig {
 
 const PROVIDERS: ProviderConfig[] = [
   {
-    provider: 'OPENAI',
-    title: 'OpenAI (GPT-4o)',
-    tag: 'Essencial • Comece Aqui',
-    isEssential: true,
-    shortDesc: 'Cria seus produtos digitais, analisa concorrentes e escreve os anúncios em inglês.',
-    docsUrl: 'https://platform.openai.com/api-keys',
-    docsLabel: 'Pegar Chave na OpenAI',
+    provider: 'GEMINI',
+    title: 'Google Gemini 2.5 Flash (Recomendado)',
+    tag: '100% Grátis • Sem Cartão',
+    isEssential: false,
+    isFreeHighlight: true,
+    shortDesc: 'IA oficial do Google com plano gratuito sem precisar de cartão. Deixa a geração de E-books e Copys muito mais rápida e inteligente.',
+    docsUrl: 'https://aistudio.google.com/apikey',
+    docsLabel: 'Pegar Chave Grátis (Google AI)',
     stepByStepTutorial: [
-      '1. Clique em "Pegar Chave na OpenAI" acima e faça login.',
-      '2. No menu esquerdo, clique em "API keys" e depois em "+ Create new secret key".',
-      '3. Em "Settings > Billing", garanta pelo menos US$ 5 de saldo para liberar o GPT-4o.',
-      '4. Copie o código "sk-proj-..." e cole no campo abaixo.',
+      '1. Clique em "Pegar Chave Grátis (Google AI)" acima e entre com sua conta Gmail normal.',
+      '2. Clique no botão azul "Create API key" (Criar chave de API) — NÃO pede cartão de crédito.',
+      '3. Copie a chave (começa com AIza...) e cole aqui embaixo para liberar IA rápida do Google sem pagar nada!',
     ],
     fields: {
-      apiKeyLabel: 'Chave da OpenAI (API Key)',
-      apiKeyPlaceholder: 'sk-proj-...',
+      apiKeyLabel: 'Chave Gratuita Google Gemini (Opcional)',
+      apiKeyPlaceholder: 'AIzaSy...',
     },
     icon: <Sparkles className="w-5 h-5 text-emerald-400" />,
   },
   {
-    provider: 'ELEVENLABS',
-    title: 'ElevenLabs (Voz Americana)',
-    tag: 'Voz IA • Aba 3',
+    provider: 'GROQ',
+    title: 'Groq LLaMA 3.3 70B (Ultra Rápida)',
+    tag: '100% Grátis • Sem Cartão',
     isEssential: false,
-    shortDesc: 'Grava a locução em inglês nativo (.MP3) para os seus vídeos de vendas.',
-    docsUrl: 'https://elevenlabs.io/app/settings/api-keys',
-    docsLabel: 'Pegar Chave ElevenLabs',
+    isFreeHighlight: true,
+    shortDesc: 'Outra opção 100% gratuita sem cartão de crédito para gerar roteiros em inglês e produtos digitais em 2 segundos.',
+    docsUrl: 'https://console.groq.com/keys',
+    docsLabel: 'Pegar Chave Grátis (Groq)',
     stepByStepTutorial: [
-      '1. Crie sua conta gratuita em elevenlabs.io.',
-      '2. Clique no seu perfil (canto inferior esquerdo) → "API Keys".',
-      '3. Clique em "Create API Key", copie o código e cole abaixo.',
+      '1. Acesse console.groq.com/keys e entre com sua conta Google ou e-mail (gratuito, sem cartão).',
+      '2. Clique em "Create API Key", dê um nome qualquer e copie o código (começa com gsk_...).',
+      '3. Cole no campo abaixo e clique em "Testar & Salvar".',
     ],
     fields: {
-      apiKeyLabel: 'Chave ElevenLabs (xi-api-key)',
-      apiKeyPlaceholder: 'sk_...',
+      apiKeyLabel: 'Chave Gratuita Groq (Opcional)',
+      apiKeyPlaceholder: 'gsk_...',
+    },
+    icon: <Cpu className="w-5 h-5 text-cyan-400" />,
+  },
+  {
+    provider: 'OPENAI',
+    title: 'OpenAI (GPT-4o) — Opcional / Paga',
+    tag: 'Opcional • Só se tiver saldo',
+    isEssential: false,
+    shortDesc: 'Se sua conta estiver sem créditos (erro 429), NÃO precisa pagar agora: o sistema pula automaticamente para a IA Gratuita ($0,00)!',
+    docsUrl: 'https://platform.openai.com/api-keys',
+    docsLabel: 'Abrir OpenAI',
+    stepByStepTutorial: [
+      '1. Use apenas quando você já estiver ganhando em Dólar e quiser pagar créditos na OpenAI.',
+      '2. Enquanto tiver US$ 0 de saldo, deixe vazio ou use o Modo Gratuito / Gemini / Groq acima.',
+    ],
+    fields: {
+      apiKeyLabel: 'Chave da OpenAI (Apenas se tiver créditos)',
+      apiKeyPlaceholder: 'sk-proj-... (opcional)',
+    },
+    icon: <Zap className="w-5 h-5 text-amber-400" />,
+  },
+  {
+    provider: 'ELEVENLABS',
+    title: 'ElevenLabs (Voz) — Opcional',
+    tag: 'Já temos Voz Grátis na Aba 3',
+    isEssential: false,
+    shortDesc: 'A Aba 3 já gera Voz Neural Americana (.MP3) 100% de graça sem ElevenLabs! Use esta chave só se quiser vozes personalizadas.',
+    docsUrl: 'https://elevenlabs.io/app/settings/api-keys',
+    docsLabel: 'Abrir ElevenLabs',
+    stepByStepTutorial: [
+      '1. Não é obrigatório ter conta na ElevenLabs: nossa Voz Neural Grátis já funciona de fábrica.',
+      '2. Caso queira usar créditos grátis mensais extras da ElevenLabs, crie conta e cole sua xi-api-key abaixo.',
+    ],
+    fields: {
+      apiKeyLabel: 'Chave ElevenLabs (Opcional)',
+      apiKeyPlaceholder: 'sk_... (opcional)',
     },
     icon: <Volume2 className="w-5 h-5 text-purple-400" />,
   },
@@ -512,6 +554,30 @@ export default function Module0Setup({
     }
   };
 
+  const handleDisconnectProvider = async (provider: string) => {
+    try {
+      await fetch(`/api/settings/credentials?provider=${provider}`, {
+        method: 'DELETE',
+      });
+    } catch {
+      // ignora erro de rede
+    }
+    removeCredentialFromVault(provider);
+    setVaultSnapshot(getStoredCredentialsVault());
+    setFormState((prev) => ({
+      ...prev,
+      [provider]: { apiKey: '', accountId: '', pixelId: '', webhookSecret: '' },
+    }));
+    setFeedback((prev) => ({
+      ...prev,
+      [provider]: {
+        type: 'success',
+        message: 'Chave removida! Modo 100% Gratuito ativo para este recurso.',
+      },
+    }));
+    await onRefresh();
+  };
+
   const isProviderConnected = (provider: string) => {
     const cfg = PROVIDERS.find((p) => p.provider === provider);
     const requiresApiKey = Boolean(cfg?.fields.apiKeyLabel);
@@ -526,7 +592,6 @@ export default function Module0Setup({
     return Boolean(saved?.isVerified || vaultItem?.isVerified);
   };
 
-  const isOpenAiConnected = isProviderConnected('OPENAI');
   const connectedCount = PROVIDERS.filter((p) => isProviderConnected(p.provider)).length;
 
   return (
@@ -535,27 +600,78 @@ export default function Module0Setup({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-white">
-            Central de Conexões & APIs
+            Central de IA Gratuita & Conexões
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Conecte apenas a <strong className="text-emerald-400">OpenAI</strong> para começar a criar produtos e anúncios agora.
+            Tudo já funciona no <strong className="text-emerald-400">Modo R$ 0,00 (Grátis)</strong> sem pagar OpenAI nem ElevenLabs!
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
-          <span className="text-xs px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
-            <strong className="text-emerald-400">{connectedCount}</strong> de {PROVIDERS.length} ativas
+          <span className="text-xs px-3 py-1.5 rounded-lg bg-emerald-950/50 border border-emerald-500/30 text-emerald-300 font-bold">
+            Motor Gratuito Ativo • {connectedCount}/{PROVIDERS.length} opcionais
           </span>
 
-          {isOpenAiConnected && onNavigateTab && (
+          {onNavigateTab && (
             <button
               onClick={() => onNavigateTab(1)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-bold text-slate-950 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-3.5 py-2 text-xs font-extrabold text-slate-950 transition shadow-sm"
             >
-              Criar Produto
+              Começar Grátis (Criar Produto)
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           )}
+        </div>
+      </div>
+
+      {/* BANNER ZERO CUSTO ($0.00): COMO GERAR TUDO SEM DINHEIRO INICIAL */}
+      <div className="rounded-2xl border border-emerald-500/40 bg-gradient-to-br from-emerald-950/60 via-slate-900 to-slate-950 p-4 sm:p-5 space-y-3 shadow-lg">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              MODO R$ 0,00 ATIVADO DE FÁBRICA
+            </div>
+            <h3 className="text-sm sm:text-base font-extrabold text-white">
+              Você NÃO precisa pagar OpenAI, ElevenLabs nem Tráfego Pago para começar!
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed max-w-3xl">
+              O sistema usa automaticamente <strong className="text-emerald-300">Inteligência Artificial Gratuita na Nuvem</strong> +{' '}
+              <strong className="text-cyan-300">Voz Neural Americana Gratuita (.MP3)</strong> +{' '}
+              <strong className="text-purple-300">Renderizador FFmpeg (.MP4)</strong>. Mesmo se sua chave da OpenAI estiver sem saldo (erro 429), o aplicativo gera seus E-books, Copys e Vídeos sem cobrar nada.
+            </p>
+          </div>
+
+          {onNavigateTab && (
+            <button
+              type="button"
+              onClick={() => onNavigateTab(1)}
+              className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2.5 text-xs font-extrabold text-slate-950 transition"
+            >
+              <Sparkles className="w-4 h-4" />
+              Ir Direto ao Passo 1 (Grátis)
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-emerald-500/20 text-[11px]">
+          <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-2.5 text-slate-300">
+            <strong className="text-emerald-400 block mb-0.5">1. Produto R$ 0</strong>
+            Crie um E-book em Inglês grátis na Aba 1 ou cadastre-se grátis como Afiliado na Digistore24 / ClickBank.
+          </div>
+          <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-2.5 text-slate-300">
+            <strong className="text-cyan-400 block mb-0.5">2. Roteiros R$ 0</strong>
+            Gere 3 roteiros americanos na Aba 2 e transforme o E-book em PDF grátis no Google Docs ou Canva.
+          </div>
+          <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-2.5 text-slate-300">
+            <strong className="text-purple-400 block mb-0.5">3. Voz & Vídeo R$ 0</strong>
+            Gere locução americana + vídeo .MP4 na Aba 3 sem pagar ElevenLabs (baixe grátis do Pexels!).
+          </div>
+          <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-2.5 text-slate-300">
+            <strong className="text-amber-400 block mb-0.5">4. Tráfego Orgânico R$ 0</strong>
+            Poste os vídeos de graça no TikTok, Reels e Shorts para fazer suas primeiras vendas antes de pagar anúncios!
+          </div>
         </div>
       </div>
 
@@ -683,8 +799,8 @@ export default function Module0Setup({
               } ${
                 isActive
                   ? 'border-emerald-500/40 bg-slate-900/90'
-                  : cfg.isEssential
-                  ? 'border-emerald-500/30 bg-gradient-to-r from-emerald-950/20 via-slate-900 to-slate-900'
+                  : cfg.isFreeHighlight
+                  ? 'border-cyan-500/35 bg-gradient-to-br from-emerald-950/20 via-slate-900 to-slate-950'
                   : 'border-slate-800/90 bg-slate-900/50'
               }`}
             >
@@ -700,7 +816,7 @@ export default function Module0Setup({
                         <h3 className="text-sm font-bold text-white">{cfg.title}</h3>
                         <span
                           className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                            cfg.isEssential
+                            cfg.isFreeHighlight
                               ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                               : 'bg-slate-800 text-slate-400'
                           }`}
@@ -943,23 +1059,36 @@ export default function Module0Setup({
                   )}
                 </div>
 
-                <button
-                  onClick={() => handleTestAndSave(cfg.provider)}
-                  disabled={isTesting}
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3.5 py-2 text-xs font-bold text-white transition shrink-0"
-                >
-                  {isTesting ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Testando...
-                    </>
-                  ) : (
-                    <>
-                      <KeyRound className="w-3.5 h-3.5" />
-                      Testar & Salvar
-                    </>
+                <div className="flex items-center gap-2 shrink-0">
+                  {(isActive || Boolean(current.apiKey?.trim())) && (
+                    <button
+                      type="button"
+                      onClick={() => handleDisconnectProvider(cfg.provider)}
+                      className="inline-flex items-center justify-center gap-1 rounded-xl bg-slate-800 hover:bg-rose-950/70 border border-slate-700 hover:border-rose-500/40 px-2.5 py-2 text-[11px] font-semibold text-slate-300 hover:text-rose-300 transition"
+                      title="Remover esta chave para usar só o Modo Gratuito"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                </button>
+
+                  <button
+                    onClick={() => handleTestAndSave(cfg.provider)}
+                    disabled={isTesting}
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 px-3.5 py-2 text-xs font-bold text-white transition shrink-0"
+                  >
+                    {isTesting ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Testando...
+                      </>
+                    ) : (
+                      <>
+                        <KeyRound className="w-3.5 h-3.5" />
+                        Testar & Salvar
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           );

@@ -52,9 +52,9 @@ import Module5SalesWebhooks from '@/components/Module5SalesWebhooks';
 const SIDEBAR_MODULES = [
   {
     index: 0,
-    shortTitle: 'Conexões & Contas',
+    shortTitle: 'IA Grátis & Conexões',
     mobileLabel: 'Conexões',
-    subtitle: 'OpenAI, Kiwify, Shopify, Meta & Google',
+    subtitle: 'Modo $0 Ativo, Gemini, Groq & Lojas',
     icon: Rocket,
     stepId: 1,
     nextLabel: 'Próximo: Produtos & Simulador →',
@@ -63,7 +63,7 @@ const SIDEBAR_MODULES = [
     index: 1,
     shortTitle: 'Produtos & Calculadora',
     mobileLabel: 'Produtos',
-    subtitle: 'Gerador IA de E-book, Afiliado & Dropship',
+    subtitle: 'Gerador Grátis de E-book, Afiliado & Dropship',
     icon: Package,
     stepId: 2,
     nextLabel: 'Próximo: Gerador de Copy em Inglês →',
@@ -72,16 +72,16 @@ const SIDEBAR_MODULES = [
     index: 2,
     shortTitle: 'Copywriting & Anúncios',
     mobileLabel: 'Copy IA',
-    subtitle: 'Roteiros e textos em inglês com tradução',
+    subtitle: 'Roteiros e textos em inglês grátis c/ tradução',
     icon: PenTool,
     stepId: 3,
-    nextLabel: 'Próximo: Voz Americana & Vídeo →',
+    nextLabel: 'Próximo: Voz Americana & Vídeo Grátis →',
   },
   {
     index: 3,
     shortTitle: 'Estúdio de Voz & Vídeo',
     mobileLabel: 'Vídeo',
-    subtitle: 'ElevenLabs MP3, FFmpeg MP4 & TikTok',
+    subtitle: 'Voz EUA Grátis MP3, FFmpeg MP4 & TikTok',
     icon: Video,
     stepId: 3,
     nextLabel: 'Próximo: Robô de Tráfego Pago →',
@@ -326,8 +326,13 @@ export default function AutopilotDashboardPage() {
           totalVaultCreativesCount
         );
 
-        const openAiOk = mergedCreds.some(
-          (c) => c.provider === 'OPENAI' && c.isVerified && c.apiKey.trim()
+        const aiProviderConnected = mergedCreds.find(
+          (c) =>
+            (c.provider === 'GEMINI' ||
+              c.provider === 'GROQ' ||
+              c.provider === 'OPENAI') &&
+            c.isVerified &&
+            c.apiKey.trim()
         );
         const metaOrTiktokOk = mergedCreds.some(
           (c) =>
@@ -346,8 +351,10 @@ export default function AutopilotDashboardPage() {
           {
             id: 1,
             weight: 20,
-            label: 'Chave OpenAI validada no banco',
-            completed: openAiOk,
+            label: aiProviderConnected
+              ? `Motor IA conectado (${aiProviderConnected.provider})`
+              : 'Modo IA Gratuita ($0,00) pronto para usar',
+            completed: true,
             tabIndex: 0,
           },
           {
@@ -468,11 +475,7 @@ export default function AutopilotDashboardPage() {
 
   const isStepDone = (tabIdx: number): boolean => {
     if (tabIdx === 0) {
-      return Boolean(
-        systemStatus?.credentials?.some(
-          (c) => c.provider === 'OPENAI' && c.isVerified && Boolean(c.apiKey?.trim())
-        )
-      );
+      return true;
     }
     if (tabIdx === 1) return products.length > 0 || (systemStatus?.counts.products ?? 0) > 0;
     if (tabIdx === 2) return creatives.length > 0 || (systemStatus?.counts.creatives ?? 0) > 0;
@@ -947,20 +950,20 @@ export default function AutopilotDashboardPage() {
             </div>
 
             <div className="space-y-2.5 text-xs text-slate-300">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <strong className="text-emerald-400">Passo 0 (Conexões):</strong> Conecte apenas sua chave da <strong>OpenAI</strong> para começar. As outras contas (Kiwify, Facebook, TikTok) você conecta apenas quando for publicar.
+              <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+                <strong className="text-emerald-300">Passo 0 (Comece com R$ 0,00!):</strong> O sistema já vem com <strong>IA Gratuita e Voz Americana Grátis integradas</strong>. Se quiser IA ainda mais ilimitada grátis, pegue uma chave sem cartão no <strong>Google Gemini</strong> ou <strong>Groq</strong>. OpenAI/Facebook Ads são 100% opcionais!
               </div>
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <strong className="text-emerald-400">Passo 1 (Produtos):</strong> Crie um E-book/Protocolo próprio em inglês com 1 clique na IA, escolha um produto de Afiliado em Dólar (Digistore24/ClickBank) ou cole o link de um fornecedor de Dropshipping.
+                <strong className="text-emerald-400">Passo 1 (Produtos):</strong> Crie um E-book próprio em inglês de graça com 1 clique ou escolha um produto de Afiliado (Digistore24/ClickBank — cadastro grátis!).
               </div>
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <strong className="text-emerald-400">Passo 2 (Copywriting):</strong> A IA cria 3 campanhas completas em inglês americano com tradução em português ao lado.
+                <strong className="text-emerald-400">Passo 2 (Copywriting):</strong> Gere 3 campanhas e roteiros completos em inglês americano de graça, com tradução em português ao lado.
               </div>
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <strong className="text-emerald-400">Passo 3 (Voz & Vídeo):</strong> Gere a locução americana na ElevenLabs, junte com um vídeo `.mp4` e baixe para seu computador ou publique no TikTok.
+                <strong className="text-emerald-400">Passo 3 (Voz & Vídeo Grátis):</strong> Gere a locução americana grátis (.MP3), junte com um vídeo grátis do Pexels em .MP4 e poste no <strong>TikTok, Reels e Shorts sem gastar dinheiro</strong> para fazer suas primeiras vendas em Dólar!
               </div>
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800">
-                <strong className="text-emerald-400">Passos 4 e 5 (Robô & Vendas):</strong> Monitore seus anúncios com Stop-Loss automático e receba notificações de vendas em Dólar convertidas para Reais.
+                <strong className="text-emerald-400">Passos 4 e 5 (Escala & Vendas):</strong> Depois que lucrar suas primeiras vendas, use a Aba 4 para gerenciar Tráfego Pago com Stop-Loss e receba suas vendas na Aba 5 via Webhook Kiwify/Shopify.
               </div>
             </div>
 

@@ -39,6 +39,32 @@ export async function POST(req: NextRequest) {
         accountName = `OpenAI API Verified (${modelsCount} models)`;
         currency = 'USD';
         verificationDetails = { modelsCount };
+      } else if (provider === 'GEMINI') {
+        if (!apiKey) throw new Error('Informe sua chave gratuita do Google Gemini (AIza...)');
+        const res = await axios.get(
+          `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(
+            apiKey.trim()
+          )}`,
+          { timeout: 12000 }
+        );
+        httpStatus = res.status;
+        isVerified = res.status === 200;
+        const modelsCount = Array.isArray(res.data?.models) ? res.data.models.length : 0;
+        accountName = `Google Gemini Grátis (${modelsCount} modelos ativos)`;
+        currency = 'USD';
+        verificationDetails = { modelsCount };
+      } else if (provider === 'GROQ') {
+        if (!apiKey) throw new Error('Informe sua chave gratuita do Groq (gsk_...)');
+        const res = await axios.get('https://api.groq.com/openai/v1/models', {
+          headers: { Authorization: `Bearer ${apiKey.trim()}` },
+          timeout: 12000,
+        });
+        httpStatus = res.status;
+        isVerified = res.status === 200;
+        const modelsCount = Array.isArray(res.data?.data) ? res.data.data.length : 0;
+        accountName = `Groq LLaMA 3.3 Grátis (${modelsCount} modelos)`;
+        currency = 'USD';
+        verificationDetails = { modelsCount };
       } else if (provider === 'META_ADS') {
         if (!apiKey || !accountId) {
           throw new Error('Informe o Access Token da Meta e o Ad Account ID (ex: act_123456789).');

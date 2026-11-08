@@ -108,6 +108,7 @@ export default function Module1Products({
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generationSuccessMsg, setGenerationSuccessMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedDeliverableId, setExpandedDeliverableId] = useState<string | null>(null);
   const [expandedDetailsId, setExpandedDetailsId] = useState<string | null>(null);
@@ -156,11 +157,9 @@ export default function Module1Products({
         setDynamicSuggestions(data.suggestions);
         setShowAiCustomBox(false);
         setSuggestionFeedback(
-          data.source === 'GPT4O_LIVE_AI'
-            ? 'Novas 5 ideias inéditas geradas pelo GPT-4o!'
-            : '5 novas ideias campeãs carregadas do catálogo US!'
+          `5 novas ideias geradas com sucesso (${data.source || 'IA Gratuita'})!`
         );
-        setTimeout(() => setSuggestionFeedback(null), 4000);
+        setTimeout(() => setSuggestionFeedback(null), 5000);
       }
     } catch {
       // Fallback
@@ -224,6 +223,7 @@ export default function Module1Products({
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setGenerationSuccessMsg(null);
 
     try {
       const res = await fetch('/api/products/generate', {
@@ -254,6 +254,12 @@ export default function Module1Products({
             setExpandedDeliverableId(data.product.id);
           }
         }
+        const engineLabel = data.aiEngineUsed || 'IA Gratuita ($0.00)';
+        setGenerationSuccessMsg(
+          data.fallbackNotice
+            ? `${data.fallbackNotice} Motor usado: ${engineLabel}`
+            : `Produto gerado e salvo ($0.00) via ${engineLabel}!`
+        );
         await onRefresh();
       }
     } catch (err: any) {
@@ -267,6 +273,7 @@ export default function Module1Products({
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setGenerationSuccessMsg(null);
 
     try {
       const res = await fetch('/api/products/ingest', {
@@ -292,6 +299,12 @@ export default function Module1Products({
           saveProductsToVault([data.product]);
           onProductCreated?.(data.product);
         }
+        const engineLabel = data.aiEngineUsed || 'IA Gratuita ($0.00)';
+        setGenerationSuccessMsg(
+          data.fallbackNotice
+            ? `${data.fallbackNotice} Motor usado: ${engineLabel}`
+            : `Link analisado e produto salvo ($0.00) via ${engineLabel}!`
+        );
         await onRefresh();
       }
     } catch (err: any) {
@@ -735,6 +748,13 @@ export default function Module1Products({
               </div>
             )}
 
+            {generationSuccessMsg && (
+              <div className="rounded-xl bg-emerald-950/60 border border-emerald-500/40 p-3 text-xs text-emerald-200 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>{generationSuccessMsg}</span>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -743,16 +763,16 @@ export default function Module1Products({
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Gerando Produto & Inteligência com GPT-4o (~12s)...
+                  Gerando Produto Grátis c/ IA (~10s)...
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
                   {genMode === 'CREATE_EBOOK'
-                    ? 'Gerar E-book Completo em Inglês & Salvar'
+                    ? 'Gerar E-book Completo em Inglês Grátis & Salvar'
                     : genMode === 'AFFILIATE_OFFER'
-                    ? 'Estruturar Oferta de Afiliado & Salvar'
-                    : 'Estruturar Produto Dropshipping & Salvar'}
+                    ? 'Estruturar Oferta de Afiliado Grátis & Salvar'
+                    : 'Estruturar Produto Dropshipping Grátis & Salvar'}
                 </>
               )}
             </button>
@@ -838,6 +858,13 @@ export default function Module1Products({
               </div>
             )}
 
+            {generationSuccessMsg && (
+              <div className="rounded-xl bg-emerald-950/60 border border-emerald-500/40 p-3 text-xs text-emerald-200 flex items-start gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <span>{generationSuccessMsg}</span>
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -846,12 +873,12 @@ export default function Module1Products({
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Extraindo Página & Analisando no GPT-4o...
+                  Extraindo Página & Analisando c/ IA Gratuita...
                 </>
               ) : (
                 <>
                   <Globe className="w-4 h-4" />
-                  Importar Link & Salvar Produto
+                  Importar Link & Salvar Produto Grátis
                 </>
               )}
             </button>

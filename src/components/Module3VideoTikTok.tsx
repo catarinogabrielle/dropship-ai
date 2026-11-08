@@ -87,7 +87,7 @@ export default function Module3VideoTikTok({
             type: 'error',
             message:
               data.error ||
-              'Erro ao gerar locução. Verifique sua chave da ElevenLabs na Aba 0.',
+              'Erro ao gerar locução em inglês. Tente novamente em alguns segundos.',
           },
         }));
       } else {
@@ -95,11 +95,14 @@ export default function Module3VideoTikTok({
           saveCreativesToVault([data.creative]);
           onCreativesUpdated?.([data.creative]);
         }
+        const ttsLabel = data.ttsEngineUsed || 'Voz Neural Grátis ($0.00)';
         setFeedback((prev) => ({
           ...prev,
           [creative.id]: {
             type: 'success',
-            message: 'Locução em inglês gerada com sucesso!',
+            message: data.fallbackNotice
+              ? `Locução em inglês gerada via ${ttsLabel}! (${data.fallbackNotice})`
+              : `Locução em inglês gerada a R$ 0,00 via ${ttsLabel}!`,
           },
         }));
         await onRefresh();
@@ -165,11 +168,12 @@ export default function Module3VideoTikTok({
           saveCreativesToVault([data.creative]);
           onCreativesUpdated?.([data.creative]);
         }
+        const ttsInfo = data.ttsEngineUsed ? ` (${data.ttsEngineUsed})` : '';
         setFeedback((prev) => ({
           ...prev,
           [creative.id]: {
             type: 'success',
-            message: 'Vídeo comercial renderizado! Baixe o .MP4 ou envie ao TikTok.',
+            message: `Vídeo comercial .MP4 pronto${ttsInfo}! Baixe e poste grátis no TikTok, Reels e YouTube Shorts.`,
           },
         }));
         await onRefresh();
@@ -255,10 +259,10 @@ export default function Module3VideoTikTok({
         <div>
           <h2 className="text-base font-extrabold text-white flex items-center gap-2">
             <Film className="w-4 h-4 text-purple-400" />
-            Estúdio de Locução Nativa (ElevenLabs) & Vídeo Comercial (.MP4)
+            Estúdio de Voz Americana & Vídeo (.MP4) — 100% Grátis
           </h2>
           <p className="text-xs text-slate-400">
-            1. Gere a voz americana → 2. Suba um vídeo de fundo para unir automaticamente → 3. Baixe o .MP4 ou poste no TikTok.
+            1. Gere a voz americana a R$ 0,00 &rarr; 2. Suba um vídeo grátis do Pexels (ou gere direto) &rarr; 3. Baixe o .MP4 e poste no orgânico!
           </p>
         </div>
 
@@ -268,9 +272,17 @@ export default function Module3VideoTikTok({
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500/40 px-3.5 py-2 text-xs font-bold text-cyan-300 transition shrink-0"
         >
-          Bancos de Vídeos Verticais Grátis (Pexels)
+          Vídeos de Fundo Grátis (Pexels)
           <ExternalLink className="w-3.5 h-3.5" />
         </a>
+      </div>
+
+      {/* PLANO ORGÂNICO R$ 0,00 */}
+      <div className="rounded-2xl border border-purple-500/30 bg-purple-950/25 px-4 py-3 text-xs text-slate-200 leading-relaxed">
+        <strong className="text-purple-300 font-extrabold">
+          💰 Estratégia R$ 0,00 para fazer suas primeiras vendas em Dólar:
+        </strong>{' '}
+        Você não precisa pagar ElevenLabs nem Meta Ads agora. Gere a voz americana grátis aqui, baixe o vídeo <strong className="text-white">.MP4</strong> pronto e poste 1 a 2 vídeos por dia de graça no <strong className="text-white">TikTok (conta EUA), Instagram Reels e YouTube Shorts</strong> com seu link de afiliado ou checkout na bio!
       </div>
 
       {creatives.length === 0 ? (
@@ -325,12 +337,12 @@ export default function Module3VideoTikTok({
 
                 {/* 3 Etapas Lado a Lado */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* Etapa 1: Locução ElevenLabs */}
+                  {/* Etapa 1: Locução Gratuita / ElevenLabs */}
                   <div className="rounded-xl bg-slate-950/90 border border-slate-800/90 p-3.5 flex flex-col justify-between space-y-3">
                     <div className="space-y-2.5">
                       <span className="text-xs font-extrabold text-purple-300 flex items-center gap-1.5">
                         <Volume2 className="w-3.5 h-3.5" />
-                        1. Locução Nativa (.MP3)
+                        1. Locução Nativa (.MP3) • Grátis
                       </span>
 
                       <select
@@ -349,6 +361,10 @@ export default function Module3VideoTikTok({
                           </option>
                         ))}
                       </select>
+
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Funciona a R$ 0,00 sem precisar de chave paga (Voz Neural TikTok EUA / Google US).
+                      </p>
 
                       {creative.audioFilePath && (
                         <div className="space-y-1.5 pt-1">
@@ -377,12 +393,12 @@ export default function Module3VideoTikTok({
                       {loadingAudioId === creative.id ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Gerando Voz...
+                          Gerando Voz Grátis...
                         </>
                       ) : (
                         <>
                           <Volume2 className="w-3.5 h-3.5" />
-                          Gerar Voz Americana
+                          Gerar Voz Americana (Grátis)
                         </>
                       )}
                     </button>
@@ -393,7 +409,7 @@ export default function Module3VideoTikTok({
                     <div className="space-y-2.5">
                       <span className="text-xs font-extrabold text-cyan-300 flex items-center gap-1.5">
                         <Upload className="w-3.5 h-3.5" />
-                        2. Unir Vídeo de Fundo + Voz (.MP4)
+                        2. Montar Vídeo (.MP4) • Grátis
                       </span>
 
                       <input
@@ -408,6 +424,10 @@ export default function Module3VideoTikTok({
                         }}
                         className="w-full text-xs text-slate-300 file:mr-2.5 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-800 file:text-cyan-300 hover:file:bg-slate-700"
                       />
+
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        Envie um vídeo vertical do Pexels (opcional) ou clique direto abaixo para gerar a voz + tela vertical 9:16 grátis.
+                      </p>
 
                       {creative.videoFilePath && (
                         <div className="space-y-1.5 pt-1">
@@ -436,12 +456,12 @@ export default function Module3VideoTikTok({
                       {loadingVideoId === creative.id ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Renderizando Vídeo...
+                          Renderizando .MP4 Grátis...
                         </>
                       ) : (
                         <>
                           <Video className="w-3.5 h-3.5" />
-                          Unir Vídeo + Locução
+                          Gerar Vídeo .MP4 (Grátis)
                         </>
                       )}
                     </button>
@@ -452,10 +472,10 @@ export default function Module3VideoTikTok({
                     <div className="space-y-2">
                       <span className="text-xs font-extrabold text-pink-300 flex items-center gap-1.5">
                         <Send className="w-3.5 h-3.5" />
-                        3. Publicar no TikTok US (Opcional)
+                        3. Publicar no TikTok (Grátis / Orgânico)
                       </span>
                       <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Envia o vídeo renderizado direto para sua conta TikTok conectada na Aba 0, ou baixe o .MP4 na Etapa 2 para subir no Meta/Google Ads.
+                        Baixe o <strong className="text-white">.MP4</strong> na Etapa 2 para postar grátis pelo celular no TikTok EUA, Reels e Shorts — ou envie pela API oficial abaixo se conectou na Aba 0.
                       </p>
                       <input
                         type="url"
@@ -499,7 +519,11 @@ export default function Module3VideoTikTok({
                         : 'bg-red-950/60 border-red-500/40 text-red-200'
                     }`}
                   >
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {fb.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                    )}
                     <span>{fb.message}</span>
                   </div>
                 )}

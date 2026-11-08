@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
-import { resolveProviderCredential } from '@/lib/server-vault';
+import { generateStructuredJsonWithFallback } from '@/lib/free-ai';
+import {
+  buildFreeProductFallback,
+  GeneratedProductPayload,
+} from '@/lib/free-fallbacks';
 
 export const maxDuration = 60;
 
 /**
  * POST /api/products/generate
- * Gera um produto completo real via OpenAI (GPT-4o) para quem ainda nao tem produto:
- * - Modo "CREATE_EBOOK": Cria um Infoproduto/Protocolo completo em Ingles (com capitulos prontos para virar PDF na Kiwify Global)
- * - Modo "AFFILIATE_OFFER": Estrutura uma oferta real para promover como Afiliado em Dolar (ClickBank, Digistore24, Kiwify)
- * - Modo "DROPSHIP_PRODUCT": Estrutura uma oferta de Dropshipping Fisico EUA (Zendrop, CJ Dropshipping)
+ * Gera um produto completo real usando IA Gratuita ($0.00) ou GPT-4o (se houver saldo):
+ * 1. OpenAI GPT-4o (se chave tiver créditos)
+ * 2. Google Gemini 2.5 Flash (Grátis)
+ * 3. Groq LLaMA 3.3 70B (Grátis)
+ * 4. Cloud IA Sem Chave (OVH Anonymous LLaMA 3.3 / Qwen)
+ * 5. Arquiteto Direct-Response Grátis Offline ($0.00 garantido)
  */
 export async function POST(req: NextRequest) {
   try {
@@ -20,7 +25,8 @@ export async function POST(req: NextRequest) {
     const {
       mode = 'CREATE_EBOOK', // 'CREATE_EBOOK' | 'AFFILIATE_OFFER' | 'DROPSHIP_PRODUCT'
       niche,
-      productIdea,
+      productIdea: rawProductIdea,
+      offerIdea,
       affiliateNetwork = 'ClickBank / Digistore24',
       affiliateLink = '',
       segment = 'KIWIFY_GLOBAL',
@@ -31,6 +37,7 @@ export async function POST(req: NextRequest) {
       monthlyProfitGoalUsd = 3000,
       _vaultCredentials,
     } = body;
+    const productIdea = rawProductIdea || offerIdea || '';
 
     if (!niche && !productIdea) {
       return NextResponse.json(
@@ -39,36 +46,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { apiKey } = await resolveProviderCredential(
-      'OPENAI',
-      _vaultCredentials,
-      'OPENAI_API_KEY'
-    );
-    if (!apiKey) {
-      return NextResponse.json(
-        {
-          error:
-            'OPENAI_API_KEY nao configurada. Va ate o Passo 0 (Conexoes & Contas), cole sua chave (sk-...) e clique em "Testar & Salvar".',
-        },
-        { status: 400 }
-      );
-    }
+    const cleanPriceUsd = Number(priceUsd);
+    const cleanCostUsd = Number(costUsd || 0);
+    const cleanOrderBumpUsd = Number(orderBumpUsd || 0);
+    const cleanShippingUsd = Number(shippingUsd || 0);
 
-    const openai = new OpenAI({ apiKey });
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are an elite US Product Creator, Direct-Response Strategist, and Affiliate/Dropshipping Architect.
-The user wants to sell in the United States and earn in USD without owning physical inventory.
+    const aiResult = await generateStructuredJsonWithFallback<GeneratedProductPayload>({
+      vaultCredentials: _vaultCredentials,
+      temperature: 0.72,
+      maxTokens: 3200,
+      validate: (p) => Boolean(p && typeof p.title === 'string' && p.title.trim().length > 2),
+      systemPrompt: `You are an elite US Product Creator, Direct-Response Strategist, and Affiliate/Dropshipping Architect.
+The user wants to sell in the United States and earn in USD without owning physical inventory (starting with zero upfront budget).
 Mode selected: "${mode}".
 Return a strict JSON object with the following keys:
 {
   "title": "High-converting American English commercial title for the product/offer",
-  "titlePt": "Traducao do titulo em portugues",
+  "titlePt": "Traducao do titulo em portugues do Brasil",
   "uniqueMechanism": "Detailed Unique Mechanism in English (with PT-BR explanation in parentheses)",
   "avatarProfile": {
     "demographics": "US target buyer demographics (Age, gender, income, profile)",
@@ -77,8 +71,8 @@ Return a strict JSON object with the following keys:
     "orderBumpSuggestionEn": "Specific Order Bump deliverable in English",
     "orderBumpSuggestionPt": "Traducao em portugues do Order Bump",
     "productCreationMode": "${mode}",
-    "whereToFindOrHostPt": "Instrucao passo a passo em portugues de onde hospedar este produto (Kiwify Global) ou onde pegar o link de afiliado/fornecedor (ClickBank, Digistore24, CJ Dropshipping, Zendrop)",
-    "deliverableContentMarkdown": "COMPLETE, detailed, ready-to-use digital product / protocol content in English (at least 600-900 words structured in 5 practical modules/chapters with actionable daily steps, checklists, and sales page summary) so the user can download it as their real product deliverable or sales page!"
+    "whereToFindOrHostPt": "Instrucao passo a passo em portugues de como vender de graca (Kiwify Global, Digistore24, ClickBank ou CJ Dropshipping) e iniciar com trafego organico gratuito no TikTok/Reels.",
+    "deliverableContentMarkdown": "COMPLETE, detailed, ready-to-use digital product / protocol content in English (at least 600-800 words structured in 5 practical modules/chapters with actionable daily steps and checklists) so the user can download it as their real product deliverable!"
   },
   "painPoints": [
     {
@@ -87,25 +81,50 @@ Return a strict JSON object with the following keys:
     }
   ]
 }
-Ensure painPoints has EXACTLY 5 items.`,
-        },
-        {
-          role: 'user',
-          content: `Mode: ${mode}
+Ensure painPoints has EXACTLY 5 items with painPt written in Portuguese (pt-BR).`,
+      userPrompt: `Mode: ${mode}
 Niche: ${niche}
 Product Idea / Specific Offer: ${productIdea || 'Create the highest-converting US offer in this niche'}
 Affiliate Network / Supplier Source: ${affiliateNetwork}
-Target Selling Price / Commission in USD: $${priceUsd}`,
-        },
-      ],
+Target Selling Price / Commission in USD: $${cleanPriceUsd}`,
+      fallbackBuilder: () =>
+        buildFreeProductFallback({
+          mode,
+          niche: String(niche || ''),
+          productIdea: String(productIdea || ''),
+          affiliateNetwork,
+          segment,
+          priceUsd: cleanPriceUsd,
+          orderBumpUsd: cleanOrderBumpUsd,
+        }),
     });
 
-    const parsed = JSON.parse(completion.choices[0].message.content || '{}');
+    const fallbackTemplate = buildFreeProductFallback({
+      mode,
+      niche: String(niche || ''),
+      productIdea: String(productIdea || ''),
+      affiliateNetwork,
+      segment,
+      priceUsd: cleanPriceUsd,
+      orderBumpUsd: cleanOrderBumpUsd,
+    });
 
-    const cleanPriceUsd = Number(priceUsd);
-    const cleanCostUsd = Number(costUsd || 0);
-    const cleanOrderBumpUsd = Number(orderBumpUsd || 0);
-    const cleanShippingUsd = Number(shippingUsd || 0);
+    const parsed = aiResult.data;
+    const mergedAvatar = {
+      ...fallbackTemplate.avatarProfile,
+      ...(parsed.avatarProfile || {}),
+      productCreationMode: mode,
+      deliverableContentMarkdown:
+        parsed.avatarProfile?.deliverableContentMarkdown &&
+        parsed.avatarProfile.deliverableContentMarkdown.length > 120
+          ? parsed.avatarProfile.deliverableContentMarkdown
+          : fallbackTemplate.avatarProfile.deliverableContentMarkdown,
+    };
+    const mergedPainPoints =
+      Array.isArray(parsed.painPoints) && parsed.painPoints.length > 0
+        ? parsed.painPoints.slice(0, 5)
+        : fallbackTemplate.painPoints;
+
     const aov = +(cleanPriceUsd + cleanOrderBumpUsd).toFixed(2);
 
     const feePercent =
@@ -113,7 +132,6 @@ Target Selling Price / Commission in USD: $${priceUsd}`,
     const feeFixed =
       segment === 'KIWIFY_GLOBAL' ? 0.8 : segment === 'TIKTOK_SHOP' ? 0.0 : 0.3;
 
-    // Se for Afiliado, o priceUsd informado ja pode ser a comissao liquida ou o preco com taxa
     const gatewayFee =
       mode === 'AFFILIATE_OFFER'
         ? 0
@@ -130,8 +148,9 @@ Target Selling Price / Commission in USD: $${priceUsd}`,
     const requiredDailySales = +(requiredMonthlySales / 30).toFixed(1);
 
     const enrichedAvatarProfile = {
-      ...(parsed.avatarProfile || {}),
-      titlePt: parsed.titlePt || '',
+      ...mergedAvatar,
+      titlePt: parsed.titlePt || fallbackTemplate.titlePt,
+      aiEngineUsed: aiResult.engineUsed,
       unitEconomicsSummary: {
         aovUsd: aov,
         gatewayFeeUsd: gatewayFee,
@@ -152,19 +171,23 @@ Target Selling Price / Commission in USD: $${priceUsd}`,
         ? 'https://cjdropshipping.com/'
         : 'https://dashboard.kiwify.com.br/';
 
+    const finalTitle = parsed.title || fallbackTemplate.title;
+    const finalMechanism = parsed.uniqueMechanism || fallbackTemplate.uniqueMechanism;
+
     const rawTextSummary = [
       `GENERATED_MODE: ${mode}`,
+      `ENGINE: ${aiResult.engineUsed}`,
       `NICHE: ${niche}`,
-      `TITLE: ${parsed.title}`,
-      `MECHANISM: ${parsed.uniqueMechanism}`,
-      `DELIVERABLE: ${parsed.avatarProfile?.deliverableContentMarkdown || ''}`,
+      `TITLE: ${finalTitle}`,
+      `MECHANISM: ${finalMechanism}`,
+      `DELIVERABLE: ${enrichedAvatarProfile.deliverableContentMarkdown || ''}`,
     ]
       .join('\n')
       .slice(0, 14000);
 
     const product = await prisma.product.create({
       data: {
-        title: parsed.title || `${niche} US Protocol`,
+        title: finalTitle,
         sourceUrl: effectiveSourceUrl,
         segment,
         rawScrapedText: rawTextSummary,
@@ -178,8 +201,8 @@ Target Selling Price / Commission in USD: $${priceUsd}`,
         breakevenRoas,
         targetCpaUsd,
         avatarProfileJson: JSON.stringify(enrichedAvatarProfile),
-        painPointsJson: JSON.stringify(parsed.painPoints || []),
-        uniqueMechanism: parsed.uniqueMechanism || '',
+        painPointsJson: JSON.stringify(mergedPainPoints),
+        uniqueMechanism: finalMechanism,
       },
     });
 
@@ -192,6 +215,8 @@ Target Selling Price / Commission in USD: $${priceUsd}`,
         detailsJson: JSON.stringify({
           mode,
           niche,
+          aiEngineUsed: aiResult.engineUsed,
+          isFreeMode: aiResult.isFreeMode,
           title: product.title,
           priceUsd: cleanPriceUsd,
           breakevenCpaUsd,
@@ -202,7 +227,13 @@ Target Selling Price / Commission in USD: $${priceUsd}`,
 
     const exchange = await getRealUsdBrlRate();
 
-    return NextResponse.json({ product, exchange });
+    return NextResponse.json({
+      product,
+      exchange,
+      aiEngineUsed: aiResult.engineUsed,
+      isFreeMode: aiResult.isFreeMode,
+      fallbackNotice: aiResult.fallbackNotice,
+    });
   } catch (error: any) {
     const message =
       error?.response?.data?.error?.message ||

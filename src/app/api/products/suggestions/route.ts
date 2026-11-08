@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ensureSqliteTables } from '@/lib/prisma';
-import OpenAI from 'openai';
-import { resolveProviderCredential } from '@/lib/server-vault';
+import { generateStructuredJsonWithFallback } from '@/lib/free-ai';
+import { buildFreeSuggestionsFallback } from '@/lib/free-fallbacks';
 
 export const maxDuration = 60;
 
@@ -325,31 +325,23 @@ export async function POST(req: NextRequest) {
     const {
       mode = 'CREATE_EBOOK',
       targetPlatform = 'KIWIFY_GLOBAL',
-      nicheTheme = '',
+      nicheTheme: rawNicheTheme,
+      customNiche,
       _vaultCredentials,
     } = body;
+    const nicheTheme = rawNicheTheme || customNiche || '';
 
-    // 1. Tenta carregar chave OpenAI (DB, cofre local sincronizado ou .env) para gerar sugestões com GPT-4o
-    const { apiKey } = await resolveProviderCredential(
-      'OPENAI',
-      _vaultCredentials,
-      'OPENAI_API_KEY'
-    );
-
-    if (apiKey && apiKey.startsWith('sk-')) {
-      try {
-        const openai = new OpenAI({ apiKey });
-        const systemPrompt = `You are a high-level Direct-Response E-commerce & Dropshipping Strategist specialized in the American consumer market (United States).
-Your task is to generate 5 brand-new, distinct, winning and validated product/offer concepts tailored for the selected mode:
+    const systemPrompt = `You are a high-level Direct-Response E-commerce & Dropshipping Strategist specialized in the American consumer market (United States).
+Generate 5 brand-new, distinct, winning product/offer concepts tailored for the selected mode:
 - Mode: ${mode} (CREATE_EBOOK = digital guide on Kiwify, AFFILIATE_OFFER = affiliate offer on ClickBank/Digistore24, DROPSHIP_PRODUCT = physical product on Shopify US)
 - Target Platform: ${targetPlatform}
 - User's Niche/Keyword/Theme: "${nicheTheme || 'Top high-margin US trending problems in health, pets, beauty, home or pain relief'}"
 
-Return ONLY a JSON array with exactly 5 objects. Each object must have:
+Return ONLY a JSON object {"suggestions": [ ...5 objects... ]}. Each object must have:
 - "label": Short catchy Portuguese label with emoji (e.g., "🦴 Alívio Nervo Ciático")
 - "title": Compelling commercial English title
 - "niche": Target US demographic and burning pain point in English
-- "idea": Detailed mechanism of action (how the offer or product solves the problem) in English
+- "idea": Detailed mechanism of action in English
 - "price": Suggested retail price in USD as string (e.g., "37.00" or "59.90")
 - "bump": Suggested order bump price in USD as string (e.g., "14.00" or "9.90")
 - "cost": Supplier or fulfillment cost in USD as string ("0.00" for digital, "8.00" to "16.00" for physical)
@@ -358,45 +350,48 @@ Return ONLY a JSON array with exactly 5 objects. Each object must have:
 - "segment": "${targetPlatform}"
 - "whyItConverts": 1 sentence in Portuguese explaining the psychological trigger and why Americans buy it`;
 
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [{ role: 'system', content: systemPrompt }],
-          response_format: { type: 'json_object' },
-          temperature: 0.85,
-        });
-
-        const content = completion.choices[0]?.message?.content || '{}';
-        const parsed = JSON.parse(content);
-        const suggestions = Array.isArray(parsed)
-          ? parsed
-          : parsed.suggestions || parsed.products || Object.values(parsed)[0];
-
-        if (Array.isArray(suggestions) && suggestions.length > 0) {
-          return NextResponse.json({
-            success: true,
-            count: suggestions.length,
-            suggestions: suggestions.slice(0, 5),
-            source: 'GPT4O_LIVE_AI',
-          });
+    const aiResult = await generateStructuredJsonWithFallback<any>({
+      vaultCredentials: _vaultCredentials,
+      temperature: 0.85,
+      maxTokens: 1800,
+      validate: (p) => {
+        const arr = Array.isArray(p) ? p : p?.suggestions || p?.products;
+        return Array.isArray(arr) && arr.length > 0 && Boolean(arr[0]?.title || arr[0]?.idea);
+      },
+      systemPrompt,
+      userPrompt: `Generate 5 high-converting US offer ideas for mode=${mode} on niche "${
+        nicheTheme || 'high-margin evergreen US problems'
+      }".`,
+      fallbackBuilder: () => {
+        if (nicheTheme && nicheTheme.trim().length > 1) {
+          return {
+            suggestions: buildFreeSuggestionsFallback(mode, targetPlatform, nicheTheme),
+          };
         }
-      } catch (aiErr) {
-        console.warn('Falha no GPT-4o para sugestões, recorrendo ao pool curado:', aiErr);
-      }
-    }
+        let pool = CURATED_SUGGESTIONS_POOL;
+        if (mode) pool = pool.filter((item) => item.mode === mode);
+        const shuffled = [...pool].sort(() => 0.5 - Math.random());
+        return { suggestions: shuffled.slice(0, 5) };
+      },
+    });
 
-    // Fallback Inteligente: Filtra e randomiza do pool curado
-    let pool = CURATED_SUGGESTIONS_POOL;
-    if (mode) {
-      pool = pool.filter((item) => item.mode === mode);
-    }
-    const shuffled = [...pool].sort(() => 0.5 - Math.random());
-    const selected = shuffled.slice(0, 5);
+    const rawParsed = aiResult.data;
+    const list = Array.isArray(rawParsed)
+      ? rawParsed
+      : rawParsed?.suggestions || rawParsed?.products || Object.values(rawParsed || {})[0];
+
+    const suggestions = Array.isArray(list) && list.length > 0
+      ? list.slice(0, 5)
+      : buildFreeSuggestionsFallback(mode, targetPlatform, nicheTheme);
 
     return NextResponse.json({
       success: true,
-      count: selected.length,
-      suggestions: selected,
-      source: 'CURATED_WINNING_POOL_FALLBACK',
+      count: suggestions.length,
+      suggestions,
+      source: aiResult.engineUsed,
+      aiEngineUsed: aiResult.engineUsed,
+      isFreeMode: aiResult.isFreeMode,
+      fallbackNotice: aiResult.fallbackNotice,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro ao gerar sugestões';
