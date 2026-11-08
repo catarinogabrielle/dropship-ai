@@ -6,7 +6,13 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import ffmpegStatic from 'ffmpeg-static';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
+import {
+  ensureCreativeFromVault,
+  resolveProviderCredential,
+} from '@/lib/server-vault';
+
+export const maxDuration = 60;
 
 const execFileAsync = promisify(execFile);
 
@@ -24,9 +30,17 @@ function sanitizeSpokenScript(rawScript: string): string {
     .trim();
 }
 
-async function generateElevenLabsAudio(creativeId: string, scriptText: string, voiceId: string) {
-  const cred = await prisma.apiCredential.findUnique({ where: { provider: 'ELEVENLABS' } });
-  const apiKey = cred?.apiKey || process.env.ELEVENLABS_API_KEY;
+async function generateElevenLabsAudio(
+  creativeId: string,
+  scriptText: string,
+  voiceId: string,
+  vaultCredentials?: any
+) {
+  const { apiKey } = await resolveProviderCredential(
+    'ELEVENLABS',
+    vaultCredentials,
+    'ELEVENLABS_API_KEY'
+  );
 
   if (!apiKey) {
     throw new Error(
@@ -107,22 +121,34 @@ async function generateElevenLabsAudio(creativeId: string, scriptText: string, v
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const contentType = req.headers.get('content-type') || '';
 
     // MODO 1: JSON request para Geracao de Voz Real na ElevenLabs
     if (contentType.includes('application/json')) {
-      const { creativeId, voiceId = '21m00Tcm4TlvDq8ikWAM' } = await req.json();
+      const {
+        creativeId,
+        voiceId = '21m00Tcm4TlvDq8ikWAM',
+        _vaultCredentials,
+        _vaultCreative,
+        _vaultProduct,
+      } = await req.json();
       if (!creativeId) {
         return NextResponse.json({ error: 'creativeId obrigatorio.' }, { status: 400 });
       }
 
-      const creative = await prisma.creative.findUnique({ where: { id: creativeId } });
+      const creative = await ensureCreativeFromVault(creativeId, _vaultCreative, _vaultProduct);
       if (!creative) {
         return NextResponse.json({ error: 'Criativo nao encontrado.' }, { status: 404 });
       }
 
       const fullScript = `${creative.hookEn} ... ${creative.bodyEn} ... ${creative.ctaEn}`.trim();
-      const { updated } = await generateElevenLabsAudio(creative.id, fullScript, voiceId);
+      const { updated } = await generateElevenLabsAudio(
+        creative.id,
+        fullScript,
+        voiceId,
+        _vaultCredentials
+      );
 
       return NextResponse.json({
         creative: updated,
@@ -137,14 +163,25 @@ export async function POST(req: NextRequest) {
       const voiceId = String(formData.get('voiceId') || '21m00Tcm4TlvDq8ikWAM');
       const videoFile = formData.get('video') as File | null;
 
+      let vaultCredentials: any = undefined;
+      let vaultCreative: any = undefined;
+      let vaultProduct: any = undefined;
+      try {
+        const rawCreds = formData.get('_vaultCredentials');
+        if (typeof rawCreds === 'string' && rawCreds) vaultCredentials = JSON.parse(rawCreds);
+        const rawCreative = formData.get('_vaultCreative');
+        if (typeof rawCreative === 'string' && rawCreative) vaultCreative = JSON.parse(rawCreative);
+        const rawProduct = formData.get('_vaultProduct');
+        if (typeof rawProduct === 'string' && rawProduct) vaultProduct = JSON.parse(rawProduct);
+      } catch {
+        // Ignora parse invalido
+      }
+
       if (!creativeId) {
         return NextResponse.json({ error: 'creativeId obrigatorio.' }, { status: 400 });
       }
 
-      let creative = await prisma.creative.findUnique({
-        where: { id: creativeId },
-        include: { product: true },
-      });
+      let creative = await ensureCreativeFromVault(creativeId, vaultCreative, vaultProduct);
       if (!creative) {
         return NextResponse.json({ error: 'Criativo nao encontrado.' }, { status: 404 });
       }
@@ -166,7 +203,12 @@ export async function POST(req: NextRequest) {
           fs.writeFileSync(localAudioPath, Buffer.from(b64, 'base64'));
         } else {
           const fullScript = `${creative.hookEn} ... ${creative.bodyEn} ... ${creative.ctaEn}`.trim();
-          const resAudio = await generateElevenLabsAudio(creative.id, fullScript, voiceId);
+          const resAudio = await generateElevenLabsAudio(
+            creative.id,
+            fullScript,
+            voiceId,
+            vaultCredentials
+          );
           creative = resAudio.updated;
           localAudioPath = resAudio.localDiskPath;
         }

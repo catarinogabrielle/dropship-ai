@@ -39,7 +39,7 @@ export async function DELETE(req: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID do produto obrigatorio.' }, { status: 400 });
     }
-    await prisma.product.delete({ where: { id } });
+    await prisma.product.deleteMany({ where: { id } });
     return NextResponse.json({ deleted: true, id });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro ao excluir produto';

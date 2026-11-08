@@ -2,21 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { TikTokService } from '@/services/tiktok.service';
+import {
+  ensureCredentialsFromVault,
+  ensureCreativeFromVault,
+} from '@/lib/server-vault';
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
-    const { creativeId, publicVideoUrl, caption, privacyLevel } = await req.json();
+    await ensureSqliteTables();
+    const {
+      creativeId,
+      publicVideoUrl,
+      caption,
+      privacyLevel,
+      _vaultCredentials,
+      _vaultCreative,
+      _vaultProduct,
+    } = await req.json();
 
     if (!creativeId) {
       return NextResponse.json({ error: 'creativeId obrigatorio.' }, { status: 400 });
     }
 
-    const creative = await prisma.creative.findUnique({
-      where: { id: creativeId },
-      include: { product: true },
-    });
+    await ensureCredentialsFromVault(_vaultCredentials);
+    const creative = await ensureCreativeFromVault(creativeId, _vaultCreative, _vaultProduct);
 
     if (!creative) {
       return NextResponse.json({ error: 'Criativo nao encontrado no banco.' }, { status: 404 });

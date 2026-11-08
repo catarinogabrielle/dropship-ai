@@ -23,10 +23,15 @@ import {
 } from 'lucide-react';
 import {
   downloadBackupToFile,
-  restoreBackupFromFile,
   syncVaultToBackend,
   saveProductsToVault,
   saveCreativesToVault,
+  saveCredentialToVault,
+  getStoredCredentialsVault,
+  getStoredProductsVault,
+  getStoredCreativesVault,
+  getDeletedProductIds,
+  getDeletedCreativeIds,
 } from '@/lib/storage-persistence';
 import {
   SystemStatusData,
@@ -35,6 +40,7 @@ import {
   CampaignData,
   SaleData,
   SegmentType,
+  ApiCredentialData,
 } from '@/types/autopilot';
 import Module0Setup from '@/components/Module0Setup';
 import Module1Products from '@/components/Module1Products';
@@ -105,6 +111,7 @@ const SEGMENT_PILLS: {
   label: string;
   fee: string;
 }[] = [
+  { id: 'ALL', label: 'Todos', fee: 'Geral' },
   { id: 'KIWIFY_GLOBAL', label: 'Kiwify Global', fee: '9.99%+$0.80' },
   { id: 'SHOPIFY_US', label: 'Shopify US', fee: '2.9%+$0.30' },
   { id: 'TIKTOK_SHOP', label: 'TikTok Shop US', fee: '6.0%' },
@@ -114,7 +121,7 @@ const SEGMENT_PILLS: {
 export default function AutopilotDashboardPage() {
   const [activeTab, setActiveTab] = useState<number>(0);
   const [selectedSegment, setSelectedSegment] =
-    useState<SegmentType>('KIWIFY_GLOBAL');
+    useState<SegmentType>('ALL');
   const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const mainScrollRef = useRef<HTMLElement | null>(null);
@@ -149,7 +156,9 @@ export default function AutopilotDashboardPage() {
   const fetchAllRealData = useCallback(async () => {
     try {
       const segParam =
-        selectedSegment === 'ADS_SCALE' ? 'ALL' : selectedSegment;
+        selectedSegment === 'ADS_SCALE' || selectedSegment === 'ALL'
+          ? 'ALL'
+          : selectedSegment;
 
       const [statusRes, prodRes, creatRes, adsRes, salesRes] =
         await Promise.all([
@@ -160,19 +169,233 @@ export default function AutopilotDashboardPage() {
           fetch(`/api/sales?segment=${segParam}`, { cache: 'no-store' }),
         ]);
 
-      if (statusRes.ok) setSystemStatus(await statusRes.json());
+      let mergedCreds: ApiCredentialData[] = [];
+      let totalVaultProductsCount = 0;
+      let totalVaultCreativesCount = 0;
+
+      // 1. Produtos (Servidor + Cofre Local para sobreviver a Serverless Lambdas isoladas)
       if (prodRes.ok) {
         const pr = await prodRes.json();
-        const prods = pr.products || [];
-        setProducts(prods);
-        if (prods.length > 0) saveProductsToVault(prods);
+        const serverProds: ProductData[] = pr.products || [];
+        if (serverProds.length > 0) saveProductsToVault(serverProds);
+
+        const deletedIds = new Set(getDeletedProductIds());
+        const vaultProds: ProductData[] = getStoredProductsVault();
+        totalVaultProductsCount = vaultProds.length;
+
+        const map = new Map<string, ProductData>();
+        for (const p of vaultProds) {
+          if (p?.id && !deletedIds.has(p.id)) {
+            if (segParam === 'ALL' || p.segment === segParam) {
+              map.set(p.id, p);
+            }
+          }
+        }
+        for (const p of serverProds) {
+          if (p?.id && !deletedIds.has(p.id)) {
+            map.set(p.id, p);
+          }
+        }
+
+        const mergedProds = Array.from(map.values()).sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
+        );
+        setProducts(mergedProds);
       }
+
+      // 2. Criativos (Servidor + Cofre Local + Estado em memoria p/ manter MP4/MP3 grandes)
       if (creatRes.ok) {
         const cr = await creatRes.json();
-        const creats = cr.creatives || [];
-        setCreatives(creats);
-        if (creats.length > 0) saveCreativesToVault(creats);
+        const serverCreats: CreativeData[] = cr.creatives || [];
+        if (serverCreats.length > 0) saveCreativesToVault(serverCreats);
+
+        const deletedCreatIds = new Set(getDeletedCreativeIds());
+        const vaultCreats: CreativeData[] = getStoredCreativesVault();
+        totalVaultCreativesCount = vaultCreats.length;
+
+        setCreatives((prev) => {
+          const map = new Map<string, CreativeData>();
+          for (const c of vaultCreats) {
+            if (c?.id && !deletedCreatIds.has(c.id)) {
+              const seg = c.product?.segment;
+              if (segParam === 'ALL' || !seg || seg === segParam) {
+                map.set(c.id, c);
+              }
+            }
+          }
+          for (const c of prev) {
+            if (c?.id && !deletedCreatIds.has(c.id)) {
+              const seg = c.product?.segment;
+              if (segParam === 'ALL' || !seg || seg === segParam) {
+                const existing = map.get(c.id);
+                map.set(c.id, {
+                  ...(existing || c),
+                  ...c,
+                  audioFilePath: c.audioFilePath || existing?.audioFilePath || null,
+                  videoFilePath: c.videoFilePath || existing?.videoFilePath || null,
+                });
+              }
+            }
+          }
+          for (const c of serverCreats) {
+            if (c?.id && !deletedCreatIds.has(c.id)) {
+              const existing = map.get(c.id);
+              map.set(c.id, {
+                ...c,
+                audioFilePath: c.audioFilePath || existing?.audioFilePath || null,
+                videoFilePath: c.videoFilePath || existing?.videoFilePath || null,
+              });
+            }
+          }
+          return Array.from(map.values()).sort(
+            (a, b) =>
+              new Date(b.createdAt || 0).getTime() -
+              new Date(a.createdAt || 0).getTime()
+          );
+        });
       }
+
+      // 3. Status & Credenciais (Espelha servidor <-> cofre local e calcula progresso real)
+      if (statusRes.ok) {
+        const st: SystemStatusData = await statusRes.json();
+        const serverCreds: ApiCredentialData[] = st.credentials || [];
+
+        for (const c of serverCreds) {
+          if (c.provider === 'WIX') continue;
+          if (c.apiKey || c.webhookSecret || c.accountId || c.isVerified) {
+            saveCredentialToVault(c.provider, {
+              apiKey: c.apiKey || undefined,
+              accountId: c.accountId || undefined,
+              pixelId: c.pixelId || undefined,
+              webhookSecret: c.webhookSecret || undefined,
+              accountName: c.accountName || undefined,
+              isVerified: c.isVerified,
+            });
+          }
+        }
+
+        const vaultCredsMap = getStoredCredentialsVault();
+        const credsByProvider = new Map<string, ApiCredentialData>();
+
+        for (const [provider, v] of Object.entries(vaultCredsMap)) {
+          if (provider === 'WIX' || !v) continue;
+          const isWebhookOnly = provider === 'KIWIFY' || provider === 'SHOPIFY';
+          const isValidActive = isWebhookOnly
+            ? Boolean(v.isVerified)
+            : Boolean(v.isVerified && v.apiKey?.trim());
+          if (v.apiKey || v.webhookSecret || v.accountId || isValidActive) {
+            credsByProvider.set(provider, {
+              id: `vault_${provider}`,
+              provider,
+              apiKey: v.apiKey || '',
+              accountId: v.accountId || null,
+              pixelId: v.pixelId || null,
+              webhookSecret: v.webhookSecret || null,
+              isVerified: isValidActive,
+              accountName: v.accountName || `${provider} Ativo`,
+              currency: 'USD',
+              lastTestedAt: v.updatedAt || null,
+              updatedAt: v.updatedAt || new Date().toISOString(),
+            });
+          }
+        }
+
+        for (const sc of serverCreds) {
+          if (sc.provider !== 'WIX') {
+            const existing = credsByProvider.get(sc.provider);
+            credsByProvider.set(sc.provider, {
+              ...sc,
+              apiKey: sc.apiKey || existing?.apiKey || '',
+              accountId: sc.accountId || existing?.accountId || null,
+              pixelId: sc.pixelId || existing?.pixelId || null,
+              webhookSecret: sc.webhookSecret || existing?.webhookSecret || null,
+              isVerified: Boolean(sc.isVerified || existing?.isVerified),
+            });
+          }
+        }
+
+        mergedCreds = Array.from(credsByProvider.values());
+        const effectiveProdCount = Math.max(
+          st.counts?.products || 0,
+          totalVaultProductsCount
+        );
+        const effectiveCreatCount = Math.max(
+          st.counts?.creatives || 0,
+          totalVaultCreativesCount
+        );
+
+        const openAiOk = mergedCreds.some(
+          (c) => c.provider === 'OPENAI' && c.isVerified && c.apiKey.trim()
+        );
+        const metaOrTiktokOk = mergedCreds.some(
+          (c) =>
+            (c.provider === 'META_ADS' || c.provider === 'TIKTOK') &&
+            c.isVerified &&
+            c.apiKey.trim()
+        );
+        const webhookOk =
+          Boolean(st.cronState?.isCronActive) &&
+          (mergedCreds.some(
+            (c) => (c.provider === 'KIWIFY' || c.provider === 'SHOPIFY') && c.isVerified
+          ) ||
+            (st.counts?.sales || 0) > 0);
+
+        const mergedSteps = [
+          {
+            id: 1,
+            weight: 20,
+            label: 'Chave OpenAI validada no banco',
+            completed: openAiOk,
+            tabIndex: 0,
+          },
+          {
+            id: 2,
+            weight: 20,
+            label: 'Produto real extraído e calculado',
+            completed: effectiveProdCount > 0,
+            tabIndex: 1,
+          },
+          {
+            id: 3,
+            weight: 20,
+            label: 'Roteiro/Copy em inglês gerado via IA',
+            completed: effectiveCreatCount > 0,
+            tabIndex: 2,
+          },
+          {
+            id: 4,
+            weight: 20,
+            label: 'Meta Ads ou TikTok US autenticado',
+            completed: metaOrTiktokOk,
+            tabIndex: 0,
+          },
+          {
+            id: 5,
+            weight: 20,
+            label: 'Robô Cron ativo e Webhook configurado',
+            completed: webhookOk,
+            tabIndex: 5,
+          },
+        ];
+
+        setSystemStatus({
+          ...st,
+          credentials: mergedCreds,
+          counts: {
+            ...st.counts,
+            products: effectiveProdCount,
+            creatives: effectiveCreatCount,
+          },
+          steps: mergedSteps,
+          progressPercent: mergedSteps.reduce(
+            (acc, s) => acc + (s.completed ? s.weight : 0),
+            0
+          ),
+        });
+      }
+
       if (adsRes.ok) {
         const ad = await adsRes.json();
         setCampaigns(ad.campaigns || []);
@@ -196,6 +419,37 @@ export default function AutopilotDashboardPage() {
     }
   }, [selectedSegment]);
 
+  const handleProductCreated = useCallback((newProd: ProductData) => {
+    saveProductsToVault([newProd]);
+    setProducts((prev) => {
+      const map = new Map<string, ProductData>();
+      map.set(newProd.id, newProd);
+      for (const p of prev) map.set(p.id, p);
+      return Array.from(map.values());
+    });
+  }, []);
+
+  const handleCreativesUpdated = useCallback((updatedList: CreativeData[]) => {
+    saveCreativesToVault(updatedList);
+    setCreatives((prev) => {
+      const map = new Map<string, CreativeData>();
+      for (const c of prev) map.set(c.id, c);
+      for (const c of updatedList) {
+        const existing = map.get(c.id);
+        map.set(c.id, {
+          ...c,
+          audioFilePath: c.audioFilePath || existing?.audioFilePath || null,
+          videoFilePath: c.videoFilePath || existing?.videoFilePath || null,
+        });
+      }
+      return Array.from(map.values()).sort(
+        (a, b) =>
+          new Date(b.createdAt || 0).getTime() -
+          new Date(a.createdAt || 0).getTime()
+      );
+    });
+  }, []);
+
   useEffect(() => {
     // Sincroniza cofre local com o backend automaticamente se o backend tiver reiniciado
     syncVaultToBackend().finally(() => {
@@ -213,19 +467,20 @@ export default function AutopilotDashboardPage() {
   );
 
   const isStepDone = (tabIdx: number): boolean => {
-    if (!systemStatus) return false;
     if (tabIdx === 0) {
-      return systemStatus.credentials.some(
-        (c) => c.provider === 'OPENAI' && c.isVerified
+      return Boolean(
+        systemStatus?.credentials?.some(
+          (c) => c.provider === 'OPENAI' && c.isVerified && Boolean(c.apiKey?.trim())
+        )
       );
     }
-    if (tabIdx === 1) return systemStatus.counts.products > 0;
-    if (tabIdx === 2) return systemStatus.counts.creatives > 0;
+    if (tabIdx === 1) return products.length > 0 || (systemStatus?.counts.products ?? 0) > 0;
+    if (tabIdx === 2) return creatives.length > 0 || (systemStatus?.counts.creatives ?? 0) > 0;
     if (tabIdx === 3) {
       return creatives.some((c) => Boolean(c.audioFilePath || c.videoFilePath));
     }
-    if (tabIdx === 4) return isMetaConnected || systemStatus.counts.campaigns > 0;
-    if (tabIdx === 5) return systemStatus.counts.sales > 0;
+    if (tabIdx === 4) return isMetaConnected || (systemStatus?.counts.campaigns ?? 0) > 0;
+    if (tabIdx === 5) return (systemStatus?.counts.sales ?? 0) > 0;
     return false;
   };
 
@@ -566,6 +821,7 @@ export default function AutopilotDashboardPage() {
                 exchangeRateBrl={exchangeRateBrl}
                 onRefresh={fetchAllRealData}
                 onNavigateTab={handleSelectTab}
+                onProductCreated={handleProductCreated}
               />
             )}
 
@@ -575,6 +831,7 @@ export default function AutopilotDashboardPage() {
                 creatives={creatives}
                 onRefresh={fetchAllRealData}
                 onNavigateTab={handleSelectTab}
+                onCreativesUpdated={handleCreativesUpdated}
               />
             )}
 
@@ -583,6 +840,7 @@ export default function AutopilotDashboardPage() {
                 creatives={creatives}
                 onRefresh={fetchAllRealData}
                 onNavigateTab={handleSelectTab}
+                onCreativesUpdated={handleCreativesUpdated}
               />
             )}
 

@@ -14,13 +14,18 @@ import {
   Copy,
 } from 'lucide-react';
 import { CreativeData, ProductData } from '@/types/autopilot';
-import { removeCreativeFromVault } from '@/lib/storage-persistence';
+import {
+  getClientCredentialsPayload,
+  removeCreativeFromVault,
+  saveCreativesToVault,
+} from '@/lib/storage-persistence';
 
 interface Module2CopywritingProps {
   products: ProductData[];
   creatives: CreativeData[];
   onRefresh: () => Promise<void>;
   onNavigateTab: (tab: number) => void;
+  onCreativesUpdated?: (creatives: CreativeData[]) => void;
 }
 
 const ANGLE_META: Record<string, { badge: string; title: string; subtitle: string }> = {
@@ -46,6 +51,7 @@ export default function Module2Copywriting({
   creatives,
   onRefresh,
   onNavigateTab,
+  onCreativesUpdated,
 }: Module2CopywritingProps) {
   const [selectedProductId, setSelectedProductId] = useState<string>(
     products[0]?.id || ''
@@ -59,7 +65,7 @@ export default function Module2Copywriting({
   const [edits, setEdits] = useState<Record<string, Partial<CreativeData>>>({});
 
   useEffect(() => {
-    if (!selectedProductId && products.length > 0) {
+    if (products.length > 0 && (!selectedProductId || !products.some((p) => p.id === selectedProductId))) {
       setSelectedProductId(products[0].id);
     }
   }, [products, selectedProductId]);
@@ -79,15 +85,24 @@ export default function Module2Copywriting({
     setError(null);
 
     try {
+      const selectedProduct = products.find((p) => p.id === selectedProductId);
       const res = await fetch('/api/creatives/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: selectedProductId }),
+        body: JSON.stringify({
+          productId: selectedProductId,
+          _vaultCredentials: getClientCredentialsPayload(),
+          _vaultProduct: selectedProduct,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Falha ao gerar estruturas de copy na OpenAI.');
       } else {
+        if (Array.isArray(data.creatives) && data.creatives.length > 0) {
+          saveCreativesToVault(data.creatives);
+          onCreativesUpdated?.(data.creatives);
+        }
         await onRefresh();
       }
     } catch (err: any) {
@@ -118,6 +133,7 @@ export default function Module2Copywriting({
     setSavingId(c.id);
     setSavedNoticeId(null);
     try {
+      const linkedProduct = c.product || products.find((p) => p.id === c.productId);
       const payload = {
         id: c.id,
         hookEn: getFieldVal(c, 'hookEn'),
@@ -128,6 +144,8 @@ export default function Module2Copywriting({
         googleHeadlinesJson: getFieldVal(c, 'googleHeadlinesJson'),
         orderBumpCopyEn: getFieldVal(c, 'orderBumpCopyEn'),
         translationPt: getFieldVal(c, 'translationPt'),
+        _vaultCreative: { ...c, videoFilePath: null, audioFilePath: null },
+        _vaultProduct: linkedProduct,
       };
 
       const res = await fetch('/api/creatives', {
@@ -136,6 +154,11 @@ export default function Module2Copywriting({
         body: JSON.stringify(payload),
       });
       if (res.ok) {
+        const data = await res.json();
+        if (data.creative) {
+          saveCreativesToVault([data.creative]);
+          onCreativesUpdated?.([data.creative]);
+        }
         setSavedNoticeId(c.id);
         await onRefresh();
       }

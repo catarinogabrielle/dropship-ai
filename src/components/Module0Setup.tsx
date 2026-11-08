@@ -244,6 +244,7 @@ export default function Module0Setup({
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasAutoSyncedRef = useRef<boolean>(false);
 
   const origin =
     typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
@@ -314,14 +315,16 @@ export default function Module0Setup({
     const latestVault = getStoredCredentialsVault();
     const missingOnBackend = Object.entries(latestVault).some(([prov, v]) => {
       if (prov === 'WIX') return false;
-      const hasData = Boolean(
-        v?.apiKey || v?.webhookSecret || v?.accountId || v?.pixelId || v?.isVerified
-      );
+      const isWebhookOnly = prov === 'KIWIFY' || prov === 'SHOPIFY';
+      const hasData = isWebhookOnly
+        ? Boolean(v?.apiKey || v?.webhookSecret || v?.accountId || v?.pixelId || v?.isVerified)
+        : Boolean(v?.apiKey?.trim());
       if (!hasData || !v?.isVerified) return false;
       return !credentials.some((c) => c.provider === prov && c.isVerified);
     });
 
-    if (missingOnBackend) {
+    if (missingOnBackend && !hasAutoSyncedRef.current) {
+      hasAutoSyncedRef.current = true;
       syncVaultToBackend().then(({ synced }) => {
         if (synced > 0) {
           onRefresh();
@@ -509,8 +512,19 @@ export default function Module0Setup({
     }
   };
 
-  const isProviderConnected = (provider: string) =>
-    Boolean(getSavedCred(provider)?.isVerified || vaultSnapshot[provider]?.isVerified);
+  const isProviderConnected = (provider: string) => {
+    const cfg = PROVIDERS.find((p) => p.provider === provider);
+    const requiresApiKey = Boolean(cfg?.fields.apiKeyLabel);
+    const saved = getSavedCred(provider);
+    const vaultItem = vaultSnapshot[provider];
+    if (requiresApiKey) {
+      return Boolean(
+        (saved?.isVerified && saved?.apiKey?.trim()) ||
+          (vaultItem?.isVerified && vaultItem?.apiKey?.trim())
+      );
+    }
+    return Boolean(saved?.isVerified || vaultItem?.isVerified);
+  };
 
   const isOpenAiConnected = isProviderConnected('OPENAI');
   const connectedCount = PROVIDERS.filter((p) => isProviderConnected(p.provider)).length;
@@ -639,7 +653,7 @@ export default function Module0Setup({
         {PROVIDERS.map((cfg) => {
           const saved = getSavedCred(cfg.provider);
           const vaultItem = vaultSnapshot[cfg.provider];
-          const isActive = Boolean(saved?.isVerified || vaultItem?.isVerified);
+          const isActive = isProviderConnected(cfg.provider);
           const displayAccountName = saved?.accountName || vaultItem?.accountName || '';
           const current = {
             apiKey: formState[cfg.provider]?.apiKey ?? saved?.apiKey ?? vaultItem?.apiKey ?? '',

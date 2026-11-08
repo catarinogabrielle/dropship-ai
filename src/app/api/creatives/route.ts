@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
+import { ensureCreativeFromVault } from '@/lib/server-vault';
 
 export async function GET(req: NextRequest) {
   try {
@@ -43,11 +44,15 @@ export async function PATCH(req: NextRequest) {
       orderBumpCopyEn,
       translationPt,
       status,
+      _vaultCreative,
+      _vaultProduct,
     } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'ID do criativo obrigatorio.' }, { status: 400 });
     }
+
+    await ensureCreativeFromVault(id, _vaultCreative, _vaultProduct);
 
     const updated = await prisma.creative.update({
       where: { id },
@@ -90,7 +95,7 @@ export async function DELETE(req: NextRequest) {
     if (!id) {
       return NextResponse.json({ error: 'ID obrigatorio' }, { status: 400 });
     }
-    await prisma.creative.delete({ where: { id } });
+    await prisma.creative.deleteMany({ where: { id } });
     return NextResponse.json({ deleted: true, id });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro ao remover criativo';

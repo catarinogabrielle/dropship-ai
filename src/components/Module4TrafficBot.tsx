@@ -23,6 +23,7 @@ import {
   ProductData,
   AutomationLogData,
 } from '@/types/autopilot';
+import { getClientCredentialsPayload } from '@/lib/storage-persistence';
 
 interface Module4TrafficBotProps {
   campaigns: CampaignData[];
@@ -60,7 +61,11 @@ export default function Module4TrafficBot({
       const res = await fetch('/api/ads/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ productId: selectedProductId || undefined }),
+        body: JSON.stringify({
+          productId: selectedProductId || undefined,
+          _vaultCredentials: getClientCredentialsPayload(),
+          _vaultProducts: products,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -93,6 +98,11 @@ export default function Module4TrafficBot({
     try {
       const res = await fetch('/api/ads/autopilot', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          _vaultCredentials: getClientCredentialsPayload(),
+          _vaultProducts: products,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -124,7 +134,12 @@ export default function Module4TrafficBot({
     await fetch('/api/ads/sync', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campaignId, productId }),
+      body: JSON.stringify({
+        campaignId,
+        productId,
+        _vaultCredentials: getClientCredentialsPayload(),
+        _vaultProducts: products,
+      }),
     });
     await onRefresh();
   };
@@ -134,7 +149,12 @@ export default function Module4TrafficBot({
     await fetch('/api/ads/sync', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ campaignId, status: nextStatus }),
+      body: JSON.stringify({
+        campaignId,
+        status: nextStatus,
+        _vaultCredentials: getClientCredentialsPayload(),
+        _vaultProducts: products,
+      }),
     });
     await onRefresh();
   };

@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import OpenAI from 'openai';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
+import { resolveProviderCredential } from '@/lib/server-vault';
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const body = await req.json();
     const {
       sourceUrl,
@@ -16,6 +20,7 @@ export async function POST(req: NextRequest) {
       orderBumpUsd = 0,
       shippingUsd = 0,
       monthlyProfitGoalUsd = 5000,
+      _vaultCredentials,
     } = body;
 
     if (!sourceUrl || !priceUsd) {
@@ -84,14 +89,17 @@ export async function POST(req: NextRequest) {
       .join('\n')
       .slice(0, 14000);
 
-    // 2. Obtem a chave real da OpenAI no banco de dados (ApiCredential) ou .env
-    const cred = await prisma.apiCredential.findUnique({ where: { provider: 'OPENAI' } });
-    const apiKey = cred?.apiKey || process.env.OPENAI_API_KEY;
+    // 2. Obtem a chave real da OpenAI do banco, cofre sincronizado ou .env
+    const { apiKey } = await resolveProviderCredential(
+      'OPENAI',
+      _vaultCredentials,
+      'OPENAI_API_KEY'
+    );
     if (!apiKey) {
       return NextResponse.json(
         {
           error:
-            'OPENAI_API_KEY nao encontrada no banco de dados. Acesse o Passo 0 (Setup & Conexoes de API) e valide sua chave da OpenAI primeiro.',
+            'OPENAI_API_KEY nao configurada. Va ate o Passo 0 (Conexoes & Contas), cole sua chave (sk-...) e clique em "Testar & Salvar".',
         },
         { status: 400 }
       );

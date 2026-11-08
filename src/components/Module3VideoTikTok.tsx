@@ -15,11 +15,16 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { CreativeData } from '@/types/autopilot';
+import {
+  getClientCredentialsPayload,
+  saveCreativesToVault,
+} from '@/lib/storage-persistence';
 
 interface Module3VideoTikTokProps {
   creatives: CreativeData[];
   onRefresh: () => Promise<void>;
   onNavigateTab: (tab: number) => void;
+  onCreativesUpdated?: (creatives: CreativeData[]) => void;
 }
 
 const US_VOICES = [
@@ -35,6 +40,7 @@ export default function Module3VideoTikTok({
   creatives,
   onRefresh,
   onNavigateTab,
+  onCreativesUpdated,
 }: Module3VideoTikTokProps) {
   const [selectedVoice, setSelectedVoice] = useState<Record<string, string>>({});
   const [selectedVideoFiles, setSelectedVideoFiles] = useState<Record<string, File | null>>({});
@@ -68,6 +74,9 @@ export default function Module3VideoTikTok({
         body: JSON.stringify({
           creativeId: creative.id,
           voiceId,
+          _vaultCredentials: getClientCredentialsPayload(),
+          _vaultCreative: { ...creative, videoFilePath: null, audioFilePath: null },
+          _vaultProduct: creative.product,
         }),
       });
       const data = await res.json();
@@ -82,6 +91,10 @@ export default function Module3VideoTikTok({
           },
         }));
       } else {
+        if (data.creative) {
+          saveCreativesToVault([data.creative]);
+          onCreativesUpdated?.([data.creative]);
+        }
         setFeedback((prev) => ({
           ...prev,
           [creative.id]: {
@@ -118,6 +131,18 @@ export default function Module3VideoTikTok({
       const formData = new FormData();
       formData.append('creativeId', creative.id);
       formData.append('voiceId', selectedVoice[creative.id] || US_VOICES[0].id);
+      formData.append('_vaultCredentials', JSON.stringify(getClientCredentialsPayload()));
+      const compactAudio =
+        creative.audioFilePath && creative.audioFilePath.length < 1_500_000
+          ? creative.audioFilePath
+          : null;
+      formData.append(
+        '_vaultCreative',
+        JSON.stringify({ ...creative, audioFilePath: compactAudio, videoFilePath: null })
+      );
+      if (creative.product) {
+        formData.append('_vaultProduct', JSON.stringify(creative.product));
+      }
       if (file) {
         formData.append('video', file);
       }
@@ -136,6 +161,10 @@ export default function Module3VideoTikTok({
           },
         }));
       } else {
+        if (data.creative) {
+          saveCreativesToVault([data.creative]);
+          onCreativesUpdated?.([data.creative]);
+        }
         setFeedback((prev) => ({
           ...prev,
           [creative.id]: {
@@ -167,6 +196,10 @@ export default function Module3VideoTikTok({
     });
 
     try {
+      const safeVideoPath =
+        creative.videoFilePath && creative.videoFilePath.length < 3_500_000
+          ? creative.videoFilePath
+          : null;
       const res = await fetch('/api/tiktok/publish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -174,6 +207,9 @@ export default function Module3VideoTikTok({
           creativeId: creative.id,
           publicVideoUrl: publicVideoUrls[creative.id] || undefined,
           caption: `${creative.hookEn} ${creative.ctaEn} #tiktokshop #usa`,
+          _vaultCredentials: getClientCredentialsPayload(),
+          _vaultCreative: { ...creative, videoFilePath: safeVideoPath, audioFilePath: null },
+          _vaultProduct: creative.product,
         }),
       });
       const data = await res.json();
@@ -186,6 +222,10 @@ export default function Module3VideoTikTok({
           },
         }));
       } else {
+        if (data.creative) {
+          saveCreativesToVault([data.creative]);
+          onCreativesUpdated?.([data.creative]);
+        }
         setFeedback((prev) => ({
           ...prev,
           [creative.id]: {

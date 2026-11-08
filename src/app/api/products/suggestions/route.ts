@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma, ensureSqliteTables } from '@/lib/prisma';
+import { ensureSqliteTables } from '@/lib/prisma';
 import OpenAI from 'openai';
+import { resolveProviderCredential } from '@/lib/server-vault';
+
+export const maxDuration = 60;
 
 export interface ProductSuggestionItem {
   label: string;
@@ -323,11 +326,15 @@ export async function POST(req: NextRequest) {
       mode = 'CREATE_EBOOK',
       targetPlatform = 'KIWIFY_GLOBAL',
       nicheTheme = '',
+      _vaultCredentials,
     } = body;
 
-    // 1. Tenta carregar chave OpenAI para gerar sugestões com GPT-4o
-    const openAiCred = await prisma.apiCredential.findUnique({ where: { provider: 'OPENAI' } });
-    const apiKey = openAiCred?.apiKey || process.env.OPENAI_API_KEY;
+    // 1. Tenta carregar chave OpenAI (DB, cofre local sincronizado ou .env) para gerar sugestões com GPT-4o
+    const { apiKey } = await resolveProviderCredential(
+      'OPENAI',
+      _vaultCredentials,
+      'OPENAI_API_KEY'
+    );
 
     if (apiKey && apiKey.startsWith('sk-')) {
       try {

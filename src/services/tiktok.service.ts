@@ -7,7 +7,7 @@ export class TikTokService {
     const cred = await prisma.apiCredential.findUnique({
       where: { provider: 'TIKTOK' },
     });
-    const token = cred?.apiKey || process.env.TIKTOK_ACCESS_TOKEN;
+    const token = (cred?.apiKey || process.env.TIKTOK_ACCESS_TOKEN || '').trim();
     if (!token) {
       throw new Error('TIKTOK_ACCESS_TOKEN nao configurado. Conecte sua conta do TikTok na Aba 0.');
     }

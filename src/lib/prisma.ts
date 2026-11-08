@@ -29,6 +29,7 @@ if (process.env.VERCEL) {
 const globalForPrisma = global as unknown as {
   prisma: PrismaClient;
   schemaInitialized?: boolean;
+  schemaInitPromise?: Promise<void>;
 };
 
 export const prisma =
@@ -49,8 +50,12 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  */
 export async function ensureSqliteTables(): Promise<void> {
   if (globalForPrisma.schemaInitialized) return;
-  try {
-    await prisma.$executeRawUnsafe(`
+  if (globalForPrisma.schemaInitPromise) return globalForPrisma.schemaInitPromise;
+
+  globalForPrisma.schemaInitPromise = (async () => {
+    try {
+      await prisma.$executeRawUnsafe('PRAGMA busy_timeout = 5000;').catch(() => {});
+      await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "ApiCredential" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "provider" TEXT NOT NULL UNIQUE,
@@ -65,7 +70,7 @@ export async function ensureSqliteTables(): Promise<void> {
         "updatedAt" DATETIME NOT NULL
       );
     `);
-    await prisma.$executeRawUnsafe(`
+      await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Product" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "title" TEXT NOT NULL,
@@ -87,7 +92,7 @@ export async function ensureSqliteTables(): Promise<void> {
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    await prisma.$executeRawUnsafe(`
+      await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Creative" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "productId" TEXT NOT NULL,
@@ -109,7 +114,7 @@ export async function ensureSqliteTables(): Promise<void> {
         CONSTRAINT "Creative_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product" ("id") ON DELETE CASCADE ON UPDATE CASCADE
       );
     `);
-    await prisma.$executeRawUnsafe(`
+      await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Campaign" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "productId" TEXT,
@@ -133,7 +138,7 @@ export async function ensureSqliteTables(): Promise<void> {
         CONSTRAINT "Campaign_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product" ("id") ON DELETE SET NULL ON UPDATE CASCADE
       );
     `);
-    await prisma.$executeRawUnsafe(`
+      await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "Sale" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "productId" TEXT,
@@ -152,7 +157,7 @@ export async function ensureSqliteTables(): Promise<void> {
         CONSTRAINT "Sale_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product" ("id") ON DELETE SET NULL ON UPDATE CASCADE
       );
     `);
-    await prisma.$executeRawUnsafe(`
+      await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "AutomationLog" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "module" TEXT NOT NULL,
@@ -163,8 +168,11 @@ export async function ensureSqliteTables(): Promise<void> {
         "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    globalForPrisma.schemaInitialized = true;
-  } catch {
-    // Ignore if already initialized
-  }
+      globalForPrisma.schemaInitialized = true;
+    } catch {
+      // Ignore if already initialized
+    }
+  })();
+
+  return globalForPrisma.schemaInitPromise;
 }

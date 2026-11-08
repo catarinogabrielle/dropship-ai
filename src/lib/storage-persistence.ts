@@ -1,7 +1,7 @@
 /**
  * CLIENT-SIDE STORAGE PERSISTENCE & BACKUP SYSTEM
- * Garante que TODAS as credenciais (incluindo Kiwify e Shopify via Webhook Secret / Domínio),
- * produtos e criativos NUNCA sejam perdidos ao fechar o navegador/PWA ou em cold starts da Vercel.
+ * Garante que TODAS as credenciais (OpenAI, ElevenLabs, Kiwify, Shopify, Meta Ads, Google Ads, TikTok),
+ * produtos e criativos NUNCA sejam perdidos ao fechar o navegador/PWA ou entre Serverless Lambdas na Vercel.
  */
 
 export interface StoredCredentialsVault {
@@ -20,6 +20,8 @@ const VAULT_KEY = 'autopilot_credentials_vault_v1';
 const PROFILE_KEY = 'autopilot_user_profile_v1';
 const PRODUCTS_KEY = 'autopilot_products_vault_v1';
 const CREATIVES_KEY = 'autopilot_creatives_vault_v1';
+const DELETED_PRODUCTS_KEY = 'autopilot_deleted_products_v1';
+const DELETED_CREATIVES_KEY = 'autopilot_deleted_creatives_v1';
 
 export function getStoredProfileName(): string {
   if (typeof window === 'undefined') return 'Gabriel (Operação Principal)';
@@ -29,6 +31,26 @@ export function getStoredProfileName(): string {
 export function saveStoredProfileName(name: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(PROFILE_KEY, name);
+}
+
+export function getDeletedProductIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(DELETED_PRODUCTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getDeletedCreativeIds(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(DELETED_CREATIVES_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
 export function getStoredCredentialsVault(): StoredCredentialsVault {
@@ -60,15 +82,28 @@ export function saveCredentialToVault(
   if (typeof window === 'undefined' || provider === 'WIX') return;
   try {
     const vault = getStoredCredentialsVault();
+    const prev = vault[provider];
+
+    const nextApiKey =
+      data.apiKey !== undefined ? data.apiKey.trim() : (prev?.apiKey || '').trim();
+    const nextAccountId =
+      data.accountId !== undefined ? data.accountId.trim() : prev?.accountId;
+    const nextPixelId =
+      data.pixelId !== undefined ? data.pixelId.trim() : prev?.pixelId;
+    const nextWebhookSecret =
+      data.webhookSecret !== undefined
+        ? data.webhookSecret.trim()
+        : prev?.webhookSecret;
+
     vault[provider] = {
-      ...vault[provider],
-      apiKey: data.apiKey !== undefined ? data.apiKey : vault[provider]?.apiKey || '',
-      accountId: data.accountId !== undefined ? data.accountId : vault[provider]?.accountId,
-      pixelId: data.pixelId !== undefined ? data.pixelId : vault[provider]?.pixelId,
+      ...prev,
+      apiKey: nextApiKey || prev?.apiKey || '',
+      accountId: nextAccountId !== undefined ? nextAccountId : prev?.accountId,
+      pixelId: nextPixelId !== undefined ? nextPixelId : prev?.pixelId,
       webhookSecret:
-        data.webhookSecret !== undefined ? data.webhookSecret : vault[provider]?.webhookSecret,
-      accountName: data.accountName !== undefined ? data.accountName : vault[provider]?.accountName,
-      isVerified: data.isVerified !== undefined ? data.isVerified : vault[provider]?.isVerified,
+        nextWebhookSecret !== undefined ? nextWebhookSecret : prev?.webhookSecret,
+      accountName: data.accountName !== undefined ? data.accountName : prev?.accountName,
+      isVerified: data.isVerified !== undefined ? data.isVerified : prev?.isVerified,
       updatedAt: new Date().toISOString(),
     };
     localStorage.setItem(VAULT_KEY, JSON.stringify(vault));
@@ -77,17 +112,67 @@ export function saveCredentialToVault(
   }
 }
 
+/**
+ * Retorna um pacote leve e limpo com todas as credenciais salvas/digitadas no cofre local
+ * para hidratar qualquer rota Serverless (/api/products/generate, /api/creatives/generate, /api/video/render, etc.)
+ */
+export function getClientCredentialsPayload(): Record<
+  string,
+  {
+    apiKey: string;
+    accountId?: string;
+    pixelId?: string;
+    webhookSecret?: string;
+    accountName?: string;
+    isVerified?: boolean;
+  }
+> {
+  const vault = getStoredCredentialsVault();
+  const payload: Record<string, any> = {};
+
+  for (const [provider, item] of Object.entries(vault)) {
+    if (provider === 'WIX' || !item) continue;
+    const apiKey = (item.apiKey || '').trim();
+    const webhookSecret = (item.webhookSecret || '').trim();
+    const accountId = (item.accountId || '').trim();
+    const pixelId = (item.pixelId || '').trim();
+
+    if (apiKey || webhookSecret || accountId || pixelId || item.isVerified) {
+      payload[provider] = {
+        apiKey,
+        accountId: accountId || undefined,
+        pixelId: pixelId || undefined,
+        webhookSecret: webhookSecret || undefined,
+        accountName: item.accountName,
+        isVerified: item.isVerified ?? false,
+      };
+    }
+  }
+
+  return payload;
+}
+
 export function saveProductsToVault(products: any[]): void {
   if (typeof window === 'undefined' || !Array.isArray(products) || products.length === 0) return;
   try {
+    const deleted = new Set(getDeletedProductIds());
     const existing = getStoredProductsVault();
     const map = new Map<string, any>();
     for (const p of existing) {
-      if (p?.id) map.set(p.id, p);
+      if (p?.id && !deleted.has(p.id)) map.set(p.id, p);
     }
     for (const p of products) {
-      if (p?.id) map.set(p.id, p);
+      if (p?.id) {
+        deleted.delete(p.id);
+        map.set(p.id, {
+          ...p,
+          creatives: undefined,
+          campaigns: undefined,
+          sales: undefined,
+        });
+      }
     }
+    localStorage.setItem(DELETED_PRODUCTS_KEY, JSON.stringify(Array.from(deleted)));
     localStorage.setItem(PRODUCTS_KEY, JSON.stringify(Array.from(map.values())));
   } catch {
     // ignore quota errors
@@ -98,7 +183,9 @@ export function getStoredProductsVault(): any[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(PRODUCTS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const list = raw ? JSON.parse(raw) : [];
+    const deleted = new Set(getDeletedProductIds());
+    return Array.isArray(list) ? list.filter((p) => p?.id && !deleted.has(p.id)) : [];
   } catch {
     return [];
   }
@@ -107,29 +194,87 @@ export function getStoredProductsVault(): any[] {
 export function removeProductFromVault(productId: string): void {
   if (typeof window === 'undefined') return;
   try {
+    const deletedProds = new Set(getDeletedProductIds());
+    deletedProds.add(productId);
+    localStorage.setItem(DELETED_PRODUCTS_KEY, JSON.stringify(Array.from(deletedProds)));
+
     const prods = getStoredProductsVault().filter((p) => p.id !== productId);
     localStorage.setItem(PRODUCTS_KEY, JSON.stringify(prods));
-    const creats = getStoredCreativesVault().filter((c) => c.productId !== productId);
-    localStorage.setItem(CREATIVES_KEY, JSON.stringify(creats));
+
+    const creats = getStoredCreativesVault();
+    const deletedCreats = new Set(getDeletedCreativeIds());
+    for (const c of creats) {
+      if (c.productId === productId && c.id) deletedCreats.add(c.id);
+    }
+    localStorage.setItem(DELETED_CREATIVES_KEY, JSON.stringify(Array.from(deletedCreats)));
+    localStorage.setItem(
+      CREATIVES_KEY,
+      JSON.stringify(creats.filter((c) => c.productId !== productId))
+    );
   } catch {
     // ignore
   }
 }
 
+function compactCreativeForStorage(c: any): any {
+  const safeAudio =
+    typeof c.audioFilePath === 'string' &&
+    c.audioFilePath.startsWith('data:') &&
+    c.audioFilePath.length > 600_000
+      ? null
+      : c.audioFilePath || null;
+
+  const safeVideo =
+    typeof c.videoFilePath === 'string' &&
+    c.videoFilePath.startsWith('data:') &&
+    c.videoFilePath.length > 250_000
+      ? null
+      : c.videoFilePath || null;
+
+  return {
+    ...c,
+    audioFilePath: safeAudio,
+    videoFilePath: safeVideo,
+    product: c.product
+      ? {
+          id: c.product.id,
+          title: c.product.title,
+          segment: c.product.segment,
+          priceUsd: c.product.priceUsd,
+        }
+      : undefined,
+  };
+}
+
 export function saveCreativesToVault(creatives: any[]): void {
   if (typeof window === 'undefined' || !Array.isArray(creatives) || creatives.length === 0) return;
   try {
+    const deleted = new Set(getDeletedCreativeIds());
     const existing = getStoredCreativesVault();
     const map = new Map<string, any>();
     for (const c of existing) {
-      if (c?.id) map.set(c.id, c);
+      if (c?.id && !deleted.has(c.id)) map.set(c.id, c);
     }
     for (const c of creatives) {
-      if (c?.id) map.set(c.id, c);
+      if (c?.id) {
+        deleted.delete(c.id);
+        map.set(c.id, compactCreativeForStorage(c));
+      }
     }
+    localStorage.setItem(DELETED_CREATIVES_KEY, JSON.stringify(Array.from(deleted)));
     localStorage.setItem(CREATIVES_KEY, JSON.stringify(Array.from(map.values())));
   } catch {
-    // ignore
+    // Fallback mais enxuto se o navegador estiver quase sem cota no localStorage
+    try {
+      const stripped = creatives.map((c) => ({
+        ...compactCreativeForStorage(c),
+        audioFilePath: null,
+        videoFilePath: null,
+      }));
+      localStorage.setItem(CREATIVES_KEY, JSON.stringify(stripped));
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -137,7 +282,9 @@ export function getStoredCreativesVault(): any[] {
   if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(CREATIVES_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const list = raw ? JSON.parse(raw) : [];
+    const deleted = new Set(getDeletedCreativeIds());
+    return Array.isArray(list) ? list.filter((c) => c?.id && !deleted.has(c.id)) : [];
   } catch {
     return [];
   }
@@ -146,6 +293,10 @@ export function getStoredCreativesVault(): any[] {
 export function removeCreativeFromVault(creativeId: string): void {
   if (typeof window === 'undefined') return;
   try {
+    const deleted = new Set(getDeletedCreativeIds());
+    deleted.add(creativeId);
+    localStorage.setItem(DELETED_CREATIVES_KEY, JSON.stringify(Array.from(deleted)));
+
     const creats = getStoredCreativesVault().filter((c) => c.id !== creativeId);
     localStorage.setItem(CREATIVES_KEY, JSON.stringify(creats));
   } catch {
@@ -154,8 +305,7 @@ export function removeCreativeFromVault(creativeId: string): void {
 }
 
 /**
- * Sincroniza TODO o cofre local (Credenciais Kiwify/Shopify/OpenAI/ElevenLabs/Meta/etc + Produtos + Criativos)
- * para o backend em uma única requisição rápida (ideal após fechar/abrir o app ou cold start na Vercel)
+ * Sincroniza TODO o cofre local para /api/system/backup na abertura do app
  */
 export async function syncVaultToBackend(): Promise<{ synced: number }> {
   if (typeof window === 'undefined') return { synced: 0 };
@@ -166,6 +316,10 @@ export async function syncVaultToBackend(): Promise<{ synced: number }> {
   const credentialsArray = Object.entries(vault)
     .filter(([provider, item]) => {
       if (provider === 'WIX') return false;
+      const isWebhookOnly = provider === 'KIWIFY' || provider === 'SHOPIFY';
+      if (!isWebhookOnly) {
+        return Boolean(item?.apiKey?.trim());
+      }
       return Boolean(
         item?.apiKey?.trim() ||
           item?.webhookSecret?.trim() ||
@@ -176,10 +330,10 @@ export async function syncVaultToBackend(): Promise<{ synced: number }> {
     })
     .map(([provider, item]) => ({
       provider,
-      apiKey: item.apiKey || '',
-      accountId: item.accountId || '',
-      pixelId: item.pixelId || '',
-      webhookSecret: item.webhookSecret || '',
+      apiKey: (item.apiKey || '').trim(),
+      accountId: (item.accountId || '').trim(),
+      pixelId: (item.pixelId || '').trim(),
+      webhookSecret: (item.webhookSecret || '').trim(),
       accountName: item.accountName,
       isVerified:
         item.isVerified !== undefined
@@ -239,7 +393,7 @@ export async function downloadBackupToFile(profileName?: string): Promise<string
     )
     .map(([k, v]) => ({
       provider: k,
-      apiKey: v.apiKey || '',
+      apiKey: (v.apiKey || '').trim(),
       accountId: v.accountId,
       pixelId: v.pixelId,
       webhookSecret: v.webhookSecret,
@@ -255,21 +409,35 @@ export async function downloadBackupToFile(profileName?: string): Promise<string
     }
   }
 
+  const mergedProductsMap = new Map<string, any>();
+  for (const p of localProducts) {
+    if (p?.id) mergedProductsMap.set(p.id, p);
+  }
+  if (Array.isArray(serverData.products)) {
+    for (const p of serverData.products) {
+      if (p?.id) mergedProductsMap.set(p.id, p);
+    }
+  }
+
+  const mergedCreativesMap = new Map<string, any>();
+  for (const c of localCreatives) {
+    if (c?.id) mergedCreativesMap.set(c.id, c);
+  }
+  if (Array.isArray(serverData.creatives)) {
+    for (const c of serverData.creatives) {
+      if (c?.id) mergedCreativesMap.set(c.id, c);
+    }
+  }
+
   const backupObject = {
     app: 'US Dollar AI Commerce Autopilot',
-    version: '1.1',
+    version: '1.2',
     profileName: profile,
     savedAt: new Date().toISOString(),
     localVault: vault,
     credentials: Array.from(mergedCredsMap.values()),
-    products:
-      Array.isArray(serverData.products) && serverData.products.length > 0
-        ? serverData.products
-        : localProducts,
-    creatives:
-      Array.isArray(serverData.creatives) && serverData.creatives.length > 0
-        ? serverData.creatives
-        : localCreatives,
+    products: Array.from(mergedProductsMap.values()),
+    creatives: Array.from(mergedCreativesMap.values()),
   };
 
   const jsonString = JSON.stringify(backupObject, null, 2);
@@ -308,6 +476,10 @@ export async function restoreBackupFromFile(file: File): Promise<{
           throw new Error('Arquivo de backup inválido ou ilegível.');
         }
 
+        // Limpa marcações de excluídos ao restaurar backup explícito
+        localStorage.removeItem(DELETED_PRODUCTS_KEY);
+        localStorage.removeItem(DELETED_CREATIVES_KEY);
+
         // 1. Restaura Vault Local (incluindo Kiwify e Shopify)
         if (parsed.localVault && typeof parsed.localVault === 'object') {
           delete parsed.localVault.WIX;
@@ -317,7 +489,7 @@ export async function restoreBackupFromFile(file: File): Promise<{
           for (const c of parsed.credentials) {
             if (c.provider && c.provider !== 'WIX') {
               vault[c.provider] = {
-                apiKey: c.apiKey || '',
+                apiKey: (c.apiKey || '').trim(),
                 accountId: c.accountId,
                 pixelId: c.pixelId,
                 webhookSecret: c.webhookSecret,

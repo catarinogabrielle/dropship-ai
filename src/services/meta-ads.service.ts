@@ -9,9 +9,9 @@ export class MetaAdsService {
     const cred = await prisma.apiCredential.findUnique({
       where: { provider: 'META_ADS' },
     });
-    const accessToken = cred?.apiKey || process.env.META_ACCESS_TOKEN;
-    const rawAccountId = cred?.accountId || process.env.META_AD_ACCOUNT_ID;
-    const pixelId = cred?.pixelId || process.env.META_PIXEL_ID;
+    const accessToken = (cred?.apiKey || process.env.META_ACCESS_TOKEN || '').trim();
+    const rawAccountId = (cred?.accountId || process.env.META_AD_ACCOUNT_ID || '').trim();
+    const pixelId = (cred?.pixelId || process.env.META_PIXEL_ID || '').trim() || undefined;
 
     if (!accessToken || !rawAccountId) {
       throw new Error(

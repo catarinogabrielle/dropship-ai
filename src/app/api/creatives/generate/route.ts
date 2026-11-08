@@ -1,25 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
+import {
+  ensureProductFromVault,
+  resolveProviderCredential,
+} from '@/lib/server-vault';
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
     await ensureSqliteTables();
-    const { productId } = await req.json();
+    const { productId, _vaultCredentials, _vaultProduct } = await req.json();
     if (!productId) {
       return NextResponse.json({ error: 'Selecione um produto real do banco de dados.' }, { status: 400 });
     }
 
-    const product = await prisma.product.findUnique({ where: { id: productId } });
+    const product = await ensureProductFromVault(productId, _vaultProduct);
     if (!product) {
       return NextResponse.json({ error: 'Produto nao encontrado no banco de dados.' }, { status: 404 });
     }
 
-    const cred = await prisma.apiCredential.findUnique({ where: { provider: 'OPENAI' } });
-    const apiKey = cred?.apiKey || process.env.OPENAI_API_KEY;
+    const { apiKey } = await resolveProviderCredential(
+      'OPENAI',
+      _vaultCredentials,
+      'OPENAI_API_KEY'
+    );
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'OPENAI_API_KEY nao configurada. Valide sua chave na Aba 0.' },
+        { error: 'OPENAI_API_KEY nao configurada. Valide sua chave no Passo 0.' },
         { status: 400 }
       );
     }

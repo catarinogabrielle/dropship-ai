@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { MetaAdsService } from '@/services/meta-ads.service';
+import {
+  ensureCredentialsFromVault,
+  ensureProductsListFromVault,
+} from '@/lib/server-vault';
+
+export const maxDuration = 60;
 
 export async function GET() {
   try {
+    await ensureSqliteTables();
     const [campaigns, logs] = await Promise.all([
       prisma.campaign.findMany({
         include: { product: true },
@@ -27,8 +34,12 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    await ensureSqliteTables();
     const body = await req.json().catch(() => ({}));
-    const { productId } = body;
+    const { productId, _vaultCredentials, _vaultProducts } = body;
+
+    await ensureCredentialsFromVault(_vaultCredentials);
+    await ensureProductsListFromVault(_vaultProducts);
 
     const metaService = new MetaAdsService();
     const syncedCampaigns = await metaService.syncAllAdSets(productId);
@@ -68,10 +79,14 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { campaignId, productId, status } = await req.json();
+    await ensureSqliteTables();
+    const { campaignId, productId, status, _vaultCredentials, _vaultProducts } = await req.json();
     if (!campaignId) {
       return NextResponse.json({ error: 'campaignId obrigatorio' }, { status: 400 });
     }
+
+    await ensureCredentialsFromVault(_vaultCredentials);
+    await ensureProductsListFromVault(_vaultProducts);
 
     const existing = await prisma.campaign.findUnique({ where: { id: campaignId } });
     if (!existing) {

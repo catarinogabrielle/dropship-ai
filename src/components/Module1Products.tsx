@@ -24,7 +24,11 @@ import {
 } from 'lucide-react';
 import { ProductData, SegmentType } from '@/types/autopilot';
 import { ProductSuggestionItem } from '@/app/api/products/suggestions/route';
-import { removeProductFromVault } from '@/lib/storage-persistence';
+import {
+  getClientCredentialsPayload,
+  removeProductFromVault,
+  saveProductsToVault,
+} from '@/lib/storage-persistence';
 
 interface Module1ProductsProps {
   products: ProductData[];
@@ -32,6 +36,7 @@ interface Module1ProductsProps {
   exchangeRateBrl: number;
   onRefresh: () => Promise<void>;
   onNavigateTab: (tab: number) => void;
+  onProductCreated?: (product: ProductData) => void;
 }
 
 const US_HOT_NICHES = [
@@ -78,9 +83,12 @@ export default function Module1Products({
   exchangeRateBrl,
   onRefresh,
   onNavigateTab,
+  onProductCreated,
 }: Module1ProductsProps) {
   const effectiveSegment =
-    selectedSegment === 'ADS_SCALE' ? 'KIWIFY_GLOBAL' : selectedSegment;
+    selectedSegment === 'ADS_SCALE' || selectedSegment === 'ALL'
+      ? 'KIWIFY_GLOBAL'
+      : selectedSegment;
 
   const [inputTab, setInputTab] = useState<'AI_GENERATOR' | 'URL_SCRAPER'>('AI_GENERATOR');
   const [genMode, setGenMode] = useState<'CREATE_EBOOK' | 'AFFILIATE_OFFER' | 'DROPSHIP_PRODUCT'>(
@@ -140,13 +148,18 @@ export default function Module1Products({
           mode: genMode,
           targetPlatform: segment,
           nicheTheme: customAiKeyword,
+          _vaultCredentials: getClientCredentialsPayload(),
         }),
       });
       const data = await res.json();
       if (data.suggestions && data.suggestions.length > 0) {
         setDynamicSuggestions(data.suggestions);
         setShowAiCustomBox(false);
-        setSuggestionFeedback('Novas 5 ideias de produtos geradas com sucesso!');
+        setSuggestionFeedback(
+          data.source === 'GPT4O_LIVE_AI'
+            ? 'Novas 5 ideias inéditas geradas pelo GPT-4o!'
+            : '5 novas ideias campeãs carregadas do catálogo US!'
+        );
         setTimeout(() => setSuggestionFeedback(null), 4000);
       }
     } catch {
@@ -227,14 +240,19 @@ export default function Module1Products({
           orderBumpUsd: numBump,
           shippingUsd: numShipping,
           monthlyProfitGoalUsd: numGoalUsd,
+          _vaultCredentials: getClientCredentialsPayload(),
         }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Erro ao gerar produto com Inteligência Artificial.');
       } else {
-        if (data.product?.id) {
-          setExpandedDeliverableId(data.product.id);
+        if (data.product) {
+          saveProductsToVault([data.product]);
+          onProductCreated?.(data.product);
+          if (data.product.id) {
+            setExpandedDeliverableId(data.product.id);
+          }
         }
         await onRefresh();
       }
@@ -262,6 +280,7 @@ export default function Module1Products({
           orderBumpUsd: numBump,
           shippingUsd: numShipping,
           monthlyProfitGoalUsd: numGoalUsd,
+          _vaultCredentials: getClientCredentialsPayload(),
         }),
       });
       const data = await res.json();
@@ -269,6 +288,10 @@ export default function Module1Products({
         setError(data.error || 'Erro ao extrair e analisar link do produto.');
       } else {
         setSourceUrl('');
+        if (data.product) {
+          saveProductsToVault([data.product]);
+          onProductCreated?.(data.product);
+        }
         await onRefresh();
       }
     } catch (err: any) {

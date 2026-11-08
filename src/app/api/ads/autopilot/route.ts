@@ -1,9 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { executeAutopilotRules, ensureAutopilotCronRunning } from '@/services/autopilot-engine';
-import { prisma } from '@/lib/prisma';
+import { prisma, ensureSqliteTables } from '@/lib/prisma';
+import {
+  ensureCredentialsFromVault,
+  ensureProductsListFromVault,
+} from '@/lib/server-vault';
 
-async function handleAutopilotExecution() {
+export const maxDuration = 60;
+
+async function handleAutopilotExecution(req?: NextRequest) {
   try {
+    await ensureSqliteTables();
+    if (req) {
+      const body = await req.json().catch(() => ({}));
+      if (body?._vaultCredentials) {
+        await ensureCredentialsFromVault(body._vaultCredentials);
+      }
+      if (body?._vaultProducts) {
+        await ensureProductsListFromVault(body._vaultProducts);
+      }
+    }
+
     const cronState = ensureAutopilotCronRunning();
     const result = await executeAutopilotRules();
 
@@ -47,6 +64,6 @@ export async function GET() {
   return handleAutopilotExecution();
 }
 
-export async function POST() {
-  return handleAutopilotExecution();
+export async function POST(req: NextRequest) {
+  return handleAutopilotExecution(req);
 }

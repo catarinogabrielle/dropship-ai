@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { getRealUsdBrlRate } from '@/lib/exchange';
+import { resolveProviderCredential } from '@/lib/server-vault';
+
+export const maxDuration = 60;
 
 /**
  * POST /api/products/generate
@@ -26,6 +29,7 @@ export async function POST(req: NextRequest) {
       orderBumpUsd = 14,
       shippingUsd = 0,
       monthlyProfitGoalUsd = 3000,
+      _vaultCredentials,
     } = body;
 
     if (!niche && !productIdea) {
@@ -35,13 +39,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cred = await prisma.apiCredential.findUnique({ where: { provider: 'OPENAI' } });
-    const apiKey = cred?.apiKey || process.env.OPENAI_API_KEY;
+    const { apiKey } = await resolveProviderCredential(
+      'OPENAI',
+      _vaultCredentials,
+      'OPENAI_API_KEY'
+    );
     if (!apiKey) {
       return NextResponse.json(
         {
           error:
-            'OPENAI_API_KEY nao configurada. Va ate o Passo 0 (Menu Lateral) e conecte sua chave da OpenAI primeiro.',
+            'OPENAI_API_KEY nao configurada. Va ate o Passo 0 (Conexoes & Contas), cole sua chave (sk-...) e clique em "Testar & Salvar".',
         },
         { status: 400 }
       );
