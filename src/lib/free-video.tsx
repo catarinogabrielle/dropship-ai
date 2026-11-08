@@ -138,19 +138,55 @@ function splitBodyIntoTwoScenes(bodyEn: string): [string, string] {
   return [clean, 'Follow this proven step-by-step American protocol starting tonight at home.'];
 }
 
+export function resolveUsableFfmpegBin(preferred?: string | null): string | null {
+  const exeName = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const candidates = [
+    preferred || '',
+    path.join(process.cwd(), 'node_modules', 'ffmpeg-static', exeName),
+    `/var/task/node_modules/ffmpeg-static/${exeName}`,
+    path.join(os.tmpdir(), exeName),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate)) {
+        if (process.platform !== 'win32') {
+          try {
+            fs.accessSync(candidate, fs.constants.X_OK);
+            return candidate;
+          } catch {
+            const tmpBin = path.join(os.tmpdir(), 'ffmpeg');
+            if (!fs.existsSync(tmpBin)) {
+              fs.copyFileSync(candidate, tmpBin);
+            }
+            fs.chmodSync(tmpBin, 0o755);
+            return tmpBin;
+          }
+        }
+        return candidate;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+  return null;
+}
+
 async function detectAudioDurationSec(
-  ffmpegBin: string,
+  ffmpegBin: string | null,
   audioPath: string
 ): Promise<number> {
-  try {
-    await execFileAsync(ffmpegBin, ['-i', audioPath]);
-  } catch (err: any) {
-    const stderr = String(err?.stderr || '');
-    const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
-    if (m) {
-      const total = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
-      if (total > 3 && total < 120) {
-        return total;
+  if (ffmpegBin) {
+    try {
+      await execFileAsync(ffmpegBin, ['-i', audioPath]);
+    } catch (err: any) {
+      const stderr = String(err?.stderr || '');
+      const m = stderr.match(/Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/);
+      if (m) {
+        const total = Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+        if (total > 3 && total < 120) {
+          return total;
+        }
       }
     }
   }
@@ -544,11 +580,16 @@ async function renderScenePngBuffer(
 export async function generateCreativeAiVideoMp4(
   params: GenerateAiVideoParams
 ): Promise<{
+  renderedOnServer: boolean;
   videoEngineUsed: string;
   scenesCount: number;
   durationSec: number;
+  clientRenderData?: {
+    scenePngDataUris: string[];
+    sceneDurationsSec: number[];
+  };
 }> {
-  const ffmpegBin = params.ffmpegBin || 'ffmpeg';
+  const usableFfmpegBin = resolveUsableFfmpegBin(params.ffmpegBin);
   const style: AiVideoStyle = params.videoStyle || 'AI_SCENES';
   const { creative } = params;
 
@@ -587,7 +628,7 @@ export async function generateCreativeAiVideoMp4(
     toAsciiClean(creative.ctaEn, 180) ||
     'Tap the link below right now to claim your risk-free copy before this batch closes!';
 
-  const totalAudioSec = await detectAudioDurationSec(ffmpegBin, params.localAudioPath);
+  const totalAudioSec = await detectAudioDurationSec(usableFfmpegBin, params.localAudioPath);
 
   // Calcula a duração proporcional de cada cena pelo tamanho do texto falado
   const texts = [hookText, bodyPart1, bodyPart2, ctaText];
@@ -679,11 +720,30 @@ export async function generateCreativeAiVideoMp4(
   const runId = `${creative.id}_${Date.now()}`;
   const scenePngPaths: string[] = [];
 
-  try {
-    const buffers = await Promise.all(
-      scenes.map((scene) => renderScenePngBuffer(scene, productTitle))
-    );
+  const buffers = await Promise.all(
+    scenes.map((scene) => renderScenePngBuffer(scene, productTitle))
+  );
 
+  const usedAiPhoto = bgImages.some(Boolean);
+  const baseEngineLabel =
+    style === 'AI_SCENES' && usedAiPhoto
+      ? 'Estúdio IA Criativo (4 Cenas Visuais + Legendas + Movimento + Soundwave)'
+      : 'Estúdio Motion Cards Virais (4 Cenas Dinâmicas + Legendas + Soundwave)';
+
+  if (!usableFfmpegBin) {
+    return {
+      renderedOnServer: false,
+      videoEngineUsed: `${baseEngineLabel} • Web Studio`,
+      scenesCount: scenes.length,
+      durationSec: Number(totalAudioSec.toFixed(1)),
+      clientRenderData: {
+        scenePngDataUris: buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`),
+        sceneDurationsSec: durations,
+      },
+    };
+  }
+
+  try {
     for (let i = 0; i < buffers.length; i++) {
       const p = path.join(tmpDir, `ai_scene_${runId}_${i}.png`);
       fs.writeFileSync(p, buffers[i]);
@@ -712,7 +772,7 @@ export async function generateCreativeAiVideoMp4(
 
     const filterComplex = filterParts.join(';');
 
-    await execFileAsync(ffmpegBin, [
+    await execFileAsync(usableFfmpegBin, [
       '-y',
       '-i',
       scenePngPaths[0],
@@ -752,14 +812,23 @@ export async function generateCreativeAiVideoMp4(
       params.outputVideoPath,
     ]);
 
-    const usedAiPhoto = bgImages.some(Boolean);
     return {
-      videoEngineUsed:
-        style === 'AI_SCENES' && usedAiPhoto
-          ? 'Estúdio IA Criativo (4 Cenas Visuais + Legendas + Movimento + Soundwave)'
-          : 'Estúdio Motion Cards Virais (4 Cenas Dinâmicas + Legendas + Soundwave)',
+      renderedOnServer: true,
+      videoEngineUsed: baseEngineLabel,
       scenesCount: scenes.length,
       durationSec: Number(totalAudioSec.toFixed(1)),
+    };
+  } catch (ffmpegErr) {
+    console.warn('Server FFmpeg indisponivel; acionando renderizacao client-side:', ffmpegErr);
+    return {
+      renderedOnServer: false,
+      videoEngineUsed: `${baseEngineLabel} • Web Studio`,
+      scenesCount: scenes.length,
+      durationSec: Number(totalAudioSec.toFixed(1)),
+      clientRenderData: {
+        scenePngDataUris: buffers.map((b) => `data:image/png;base64,${b.toString('base64')}`),
+        sceneDurationsSec: durations,
+      },
     };
   } finally {
     for (const p of scenePngPaths) {

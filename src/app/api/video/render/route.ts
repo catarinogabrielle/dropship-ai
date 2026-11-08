@@ -8,7 +8,11 @@ import ffmpegStatic from 'ffmpeg-static';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { ensureCreativeFromVault } from '@/lib/server-vault';
 import { generateEnglishVoiceoverMp3 } from '@/lib/free-tts';
-import { generateCreativeAiVideoMp4, AiVideoStyle } from '@/lib/free-video';
+import {
+  generateCreativeAiVideoMp4,
+  AiVideoStyle,
+  resolveUsableFfmpegBin,
+} from '@/lib/free-video';
 
 export const maxDuration = 60;
 
@@ -190,38 +194,61 @@ export async function POST(req: NextRequest) {
 
       const finalVideoFileName = `${creativeId}.mp4`;
       const finalVideoFullPath = path.join(videoOutDir, finalVideoFileName);
-      const ffmpegBin = ffmpegStatic || 'ffmpeg';
+      const ffmpegBin = resolveUsableFfmpegBin(ffmpegStatic);
       let videoEngineUsed = 'Estúdio IA Criativo (4 Cenas + Legendas + Soundwave)';
+      let requiresClientRender = false;
+      let clientRenderData:
+        | {
+            scenePngDataUris?: string[];
+            sceneDurationsSec?: number[];
+            audioDataUri: string;
+          }
+        | undefined;
+
+      const audioBufferForClient = fs.readFileSync(localAudioPath);
+      const audioDataUri = `data:audio/mpeg;base64,${audioBufferForClient.toString('base64')}`;
 
       if (videoFile && videoFile.size > 0) {
-        const rawVideoPath = path.join(uploadsDir, `${creativeId}_raw.mp4`);
-        const arrayBuffer = await videoFile.arrayBuffer();
-        fs.writeFileSync(rawVideoPath, Buffer.from(arrayBuffer));
+        if (ffmpegBin) {
+          try {
+            const rawVideoPath = path.join(uploadsDir, `${creativeId}_raw.mp4`);
+            const arrayBuffer = await videoFile.arrayBuffer();
+            fs.writeFileSync(rawVideoPath, Buffer.from(arrayBuffer));
 
-        await execFileAsync(ffmpegBin, [
-          '-y',
-          '-stream_loop',
-          '-1',
-          '-i',
-          rawVideoPath,
-          '-i',
-          localAudioPath,
-          '-c:v',
-          'copy',
-          '-c:a',
-          'aac',
-          '-b:a',
-          '192k',
-          '-map',
-          '0:v:0',
-          '-map',
-          '1:a:0',
-          '-shortest',
-          '-movflags',
-          '+faststart',
-          finalVideoFullPath,
-        ]);
-        videoEngineUsed = 'Vídeo de Fundo Enviado + Locução Nativa';
+            await execFileAsync(ffmpegBin, [
+              '-y',
+              '-stream_loop',
+              '-1',
+              '-i',
+              rawVideoPath,
+              '-i',
+              localAudioPath,
+              '-c:v',
+              'copy',
+              '-c:a',
+              'aac',
+              '-b:a',
+              '192k',
+              '-map',
+              '0:v:0',
+              '-map',
+              '1:a:0',
+              '-shortest',
+              '-movflags',
+              '+faststart',
+              finalVideoFullPath,
+            ]);
+            videoEngineUsed = 'Vídeo de Fundo Enviado + Locução Nativa';
+          } catch {
+            requiresClientRender = true;
+            clientRenderData = { audioDataUri };
+            videoEngineUsed = 'Vídeo de Fundo Enviado + Locução Nativa (Web Studio)';
+          }
+        } else {
+          requiresClientRender = true;
+          clientRenderData = { audioDataUri };
+          videoEngineUsed = 'Vídeo de Fundo Enviado + Locução Nativa (Web Studio)';
+        }
       } else {
         const aiVideoResult = await generateCreativeAiVideoMp4({
           creative,
@@ -231,6 +258,50 @@ export async function POST(req: NextRequest) {
           ffmpegBin,
         });
         videoEngineUsed = aiVideoResult.videoEngineUsed;
+
+        if (!aiVideoResult.renderedOnServer && aiVideoResult.clientRenderData) {
+          requiresClientRender = true;
+          clientRenderData = {
+            scenePngDataUris: aiVideoResult.clientRenderData.scenePngDataUris,
+            sceneDurationsSec: aiVideoResult.clientRenderData.sceneDurationsSec,
+            audioDataUri,
+          };
+        }
+      }
+
+      if (requiresClientRender && clientRenderData) {
+        const updatedCreative = await prisma.creative.update({
+          where: { id: creative.id },
+          data: {
+            audioFilePath: audioDataUri,
+            status: 'VIDEO_RENDERED',
+          },
+          include: { product: true },
+        });
+
+        await prisma.automationLog.create({
+          data: {
+            module: 'AI_VIDEO_GENERATOR',
+            action: 'CREATIVE_SCENES_PREPARED_FOR_WEB_RENDER',
+            targetId: creative.id,
+            httpStatus: 200,
+            detailsJson: JSON.stringify({
+              serverless: isServerless,
+              videoStyle: videoFile && videoFile.size > 0 ? 'CUSTOM_UPLOAD' : videoStyle,
+              videoEngineUsed,
+              ttsEngineUsed,
+            }),
+          },
+        });
+
+        return NextResponse.json({
+          creative: updatedCreative,
+          requiresClientRender: true,
+          clientRenderData,
+          videoEngineUsed,
+          ttsEngineUsed,
+          fallbackNotice,
+        });
       }
 
       let publicVideoUrl = `/generated/video/${finalVideoFileName}`;

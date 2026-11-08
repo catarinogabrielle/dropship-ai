@@ -124,6 +124,167 @@ export default function Module3VideoTikTok({
     }
   };
 
+  const synthesizeAiVideoInBrowser = async (params: {
+    scenePngDataUris: string[];
+    audioDataUri: string;
+  }): Promise<string> => {
+    const loadImg = (src: string) =>
+      new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Falha ao carregar cena visual IA'));
+        img.src = src;
+      });
+
+    const images = await Promise.all(params.scenePngDataUris.map(loadImg));
+    const audioRes = await fetch(params.audioDataUri);
+    const audioArrayBuf = await audioRes.arrayBuffer();
+
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const audioCtx: AudioContext = new AudioCtx();
+    const audioBuffer = await audioCtx.decodeAudioData(audioArrayBuf.slice(0));
+    const totalDurationSec = Math.max(6, audioBuffer.duration);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 1280;
+    const ctx = canvas.getContext('2d')!;
+
+    const dest = audioCtx.createMediaStreamDestination();
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 128;
+    const freqData = new Uint8Array(analyser.frequencyBinCount);
+
+    const source = audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(analyser);
+    analyser.connect(dest);
+
+    const canvasStream = canvas.captureStream(30);
+    const combinedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...dest.stream.getAudioTracks(),
+    ]);
+
+    const mimeCandidates = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+    ];
+    const chosenMime =
+      mimeCandidates.find(
+        (m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m)
+      ) || '';
+
+    const recorder = new MediaRecorder(
+      combinedStream,
+      chosenMime
+        ? { mimeType: chosenMime, videoBitsPerSecond: 1_800_000 }
+        : { videoBitsPerSecond: 1_800_000 }
+    );
+
+    const chunks: BlobPart[] = [];
+    recorder.ondataavailable = (ev) => {
+      if (ev.data && ev.data.size > 0) chunks.push(ev.data);
+    };
+
+    const drawSceneWithZoom = (
+      img: HTMLImageElement,
+      sceneIdx: number,
+      progress: number,
+      alpha: number
+    ) => {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      const scale =
+        sceneIdx % 2 === 0
+          ? 1.0 + 0.065 * Math.min(1, Math.max(0, progress))
+          : 1.065 - 0.065 * Math.min(1, Math.max(0, progress));
+      const drawW = 720 * scale;
+      const drawH = 1280 * scale;
+      const dx = (720 - drawW) / 2;
+      const dy = (1280 - drawH) / 2;
+      ctx.drawImage(img, dx, dy, drawW, drawH);
+      ctx.restore();
+    };
+
+    const sceneCount = images.length;
+    const sceneLen = totalDurationSec / sceneCount;
+
+    return await new Promise<string>((resolve, reject) => {
+      const startTime = performance.now();
+
+      const drawTick = () => {
+        const elapsedSec = (performance.now() - startTime) / 1000;
+        const rawIdx = Math.min(sceneCount - 1, Math.floor(elapsedSec / sceneLen));
+        const withinSceneSec = elapsedSec - rawIdx * sceneLen;
+        const progress = Math.min(1, Math.max(0, withinSceneSec / sceneLen));
+
+        ctx.fillStyle = '#060a13';
+        ctx.fillRect(0, 0, 720, 1280);
+
+        drawSceneWithZoom(images[rawIdx], rawIdx, progress, 1);
+
+        // Crossfade suave nos últimos 0.35s da cena
+        const fadeWindow = 0.35;
+        if (rawIdx < sceneCount - 1 && sceneLen - withinSceneSec < fadeWindow) {
+          const nextAlpha = 1 - (sceneLen - withinSceneSec) / fadeWindow;
+          drawSceneWithZoom(images[rawIdx + 1], rawIdx + 1, 0, nextAlpha);
+        }
+
+        // Ondas de áudio verdes ao vivo no rodapé (y = 1218..1262)
+        analyser.getByteFrequencyData(freqData);
+        const barCount = 36;
+        const barWidth = 10;
+        const gap = 6;
+        const totalBarsW = barCount * barWidth + (barCount - 1) * gap;
+        const startX = (720 - totalBarsW) / 2;
+        const centerY = 1244;
+
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+        for (let b = 0; b < barCount; b++) {
+          const val = freqData[b % freqData.length] || 18;
+          const barH = Math.max(6, (val / 255) * 42);
+          const x = startX + b * (barWidth + gap);
+          ctx.beginPath();
+          ctx.roundRect(x, centerY - barH / 2, barWidth, barH, 4);
+          ctx.fill();
+        }
+      };
+
+      const intervalId = window.setInterval(drawTick, 33);
+      drawTick();
+
+      recorder.onstop = () => {
+        window.clearInterval(intervalId);
+        audioCtx.close().catch(() => {});
+        const blob = new Blob(chunks, { type: chosenMime || 'video/mp4' });
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Erro ao converter vídeo renderizado'));
+        reader.readAsDataURL(blob);
+      };
+
+      recorder.onerror = () => {
+        window.clearInterval(intervalId);
+        audioCtx.close().catch(() => {});
+        reject(new Error('Erro no gravador de vídeo do navegador'));
+      };
+
+      recorder.start(200);
+      source.start(0);
+
+      source.onended = () => {
+        if (recorder.state === 'recording') {
+          recorder.stop();
+        }
+      };
+    });
+  };
+
   const handleRenderVideoWithFfmpeg = async (creative: CreativeData) => {
     const modeStyle = selectedVideoStyle[creative.id] || 'AI_SCENES';
     const file = modeStyle === 'CUSTOM_UPLOAD' ? selectedVideoFiles[creative.id] : null;
@@ -170,6 +331,43 @@ export default function Module3VideoTikTok({
           [creative.id]: {
             type: 'error',
             message: data.error || 'Falha ao gerar vídeo comercial.',
+          },
+        }));
+      } else if (
+        data.requiresClientRender &&
+        data.clientRenderData?.scenePngDataUris?.length &&
+        data.clientRenderData?.audioDataUri
+      ) {
+        setFeedback((prev) => ({
+          ...prev,
+          [creative.id]: {
+            type: 'success',
+            message:
+              'Cenas IA prontas! Finalizando gravação das 4 cenas com locução e ondas de áudio...',
+          },
+        }));
+
+        const renderedVideoDataUrl = await synthesizeAiVideoInBrowser({
+          scenePngDataUris: data.clientRenderData.scenePngDataUris,
+          audioDataUri: data.clientRenderData.audioDataUri,
+        });
+
+        const updatedWithVideo: CreativeData = {
+          ...(data.creative || creative),
+          audioFilePath: data.clientRenderData.audioDataUri,
+          videoFilePath: renderedVideoDataUrl,
+          status: 'VIDEO_RENDERED',
+        };
+        saveCreativesToVault([updatedWithVideo]);
+        onCreativesUpdated?.([updatedWithVideo]);
+
+        const engineLabel =
+          data.videoEngineUsed || 'Estúdio IA Criativo (4 Cenas + Legendas + Soundwave)';
+        setFeedback((prev) => ({
+          ...prev,
+          [creative.id]: {
+            type: 'success',
+            message: `Vídeo .MP4 gerado com sucesso via ${engineLabel}! Assista no player ou baixe para postar no TikTok, Reels e Shorts.`,
           },
         }));
       } else {
