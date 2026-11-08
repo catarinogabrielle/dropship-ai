@@ -55,22 +55,43 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     const errDetails = error?.response?.data || { message: error.message };
+    const rawMsg = String(
+      errDetails?.error?.message ||
+        errDetails?.message ||
+        error.message ||
+        'Erro ao sincronizar campanhas da Meta Ads'
+    );
+    const isTokenExpired =
+      errDetails?.error?.code === 190 ||
+      /session has expired|validating access token|token.*expired|oauth/i.test(rawMsg);
+
+    if (isTokenExpired) {
+      await prisma.apiCredential
+        .updateMany({
+          where: { provider: 'META_ADS' },
+          data: { isVerified: false },
+        })
+        .catch(() => {});
+    }
+
     await prisma.automationLog.create({
       data: {
         module: 'META_ADS_SYNC',
-        action: 'SYNC_FAILED',
+        action: isTokenExpired ? 'TOKEN_EXPIRED' : 'SYNC_FAILED',
         httpStatus: error?.response?.status || 400,
         detailsJson: JSON.stringify(errDetails),
       },
     });
 
+    const friendlyError = isTokenExpired
+      ? 'Seu Token temporário do Facebook Ads expirou (tokens criados no Graph Explorer duram apenas 1 a 2 horas). Se você está começando no Modo Grátis (R$ 0,00), não precisa usar esta aba — pule direto para a Aba 5! Caso queira sincronizar anúncios pagos, desconecte o token expirado abaixo ou gere um novo na Aba 0.'
+      : rawMsg;
+
     return NextResponse.json(
       {
-        error:
-          errDetails?.error?.message ||
-          errDetails?.message ||
-          error.message ||
-          'Erro ao sincronizar campanhas da Meta Ads',
+        error: friendlyError,
+        rawMetaError: rawMsg,
+        tokenExpired: isTokenExpired,
       },
       { status: 400 }
     );

@@ -17,13 +17,18 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  Trash2,
+  KeyRound,
 } from 'lucide-react';
 import {
   CampaignData,
   ProductData,
   AutomationLogData,
 } from '@/types/autopilot';
-import { getClientCredentialsPayload } from '@/lib/storage-persistence';
+import {
+  getClientCredentialsPayload,
+  removeCredentialFromVault,
+} from '@/lib/storage-persistence';
 
 interface Module4TrafficBotProps {
   campaigns: CampaignData[];
@@ -52,7 +57,24 @@ export default function Module4TrafficBot({
   const [statusMsg, setStatusMsg] = useState<{
     type: 'success' | 'error';
     text: string;
+    tokenExpired?: boolean;
   } | null>(null);
+
+  const handleDisconnectExpiredMeta = async () => {
+    removeCredentialFromVault('META_ADS');
+    try {
+      await fetch('/api/settings/credentials?provider=META_ADS', {
+        method: 'DELETE',
+      });
+    } catch {
+      // ignore network error
+    }
+    setStatusMsg({
+      type: 'success',
+      text: 'Token expirado do Facebook Ads removido! No Modo R$ 0,00 você não precisa desta aba agora — siga para a Aba 5 (Vendas & Webhooks) ou poste seus vídeos da Aba 3.',
+    });
+    await onRefresh();
+  };
 
   const handleSyncMetaAds = async () => {
     setSyncing(true);
@@ -69,11 +91,15 @@ export default function Module4TrafficBot({
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.tokenExpired) {
+          removeCredentialFromVault('META_ADS');
+        }
         setStatusMsg({
           type: 'error',
           text:
             data.error ||
             'Erro ao buscar anúncios. Verifique se o Facebook Ads está conectado na Aba 0.',
+          tokenExpired: Boolean(data.tokenExpired),
         });
       } else {
         setStatusMsg({
@@ -106,9 +132,13 @@ export default function Module4TrafficBot({
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.tokenExpired) {
+          removeCredentialFromVault('META_ADS');
+        }
         setStatusMsg({
           type: 'error',
           text: data.error || 'Erro ao executar regras do Robô de Tráfego Pago.',
+          tokenExpired: Boolean(data.tokenExpired),
         });
       } else {
         const actions = (data.actionsTaken || []).filter(
@@ -345,18 +375,49 @@ export default function Module4TrafficBot({
 
         {statusMsg && (
           <div
-            className={`rounded-xl px-3.5 py-2.5 text-xs flex items-center gap-2 border ${
+            className={`rounded-xl px-4 py-3 text-xs border space-y-2.5 ${
               statusMsg.type === 'success'
                 ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
                 : 'bg-red-950/60 border-red-500/40 text-red-200'
             }`}
           >
-            {statusMsg.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <div className="flex items-start gap-2">
+              {statusMsg.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              )}
+              <span className="leading-relaxed">{statusMsg.text}</span>
+            </div>
+
+            {statusMsg.tokenExpired && (
+              <div className="flex flex-wrap items-center gap-2 pt-1 pl-6">
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab(5)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 text-[11px] font-extrabold text-white transition"
+                >
+                  Pular p/ Aba 5 (Vendas & Webhooks Grátis)
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnectExpiredMeta}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 px-3 py-1.5 text-[11px] font-bold text-slate-200 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  Remover Token Expirado (Parar Erro)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onNavigateTab(0)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600/80 hover:bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white transition"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  Renovar Token na Aba 0
+                </button>
+              </div>
             )}
-            <span>{statusMsg.text}</span>
           </div>
         )}
       </div>
@@ -368,28 +429,36 @@ export default function Module4TrafficBot({
           <h4 className="text-sm font-bold text-white">
             Nenhum conjunto de anúncios sincronizado
           </h4>
-          <p className="text-xs text-slate-400 max-w-md mx-auto mt-1 mb-4">
+          <p className="text-xs text-slate-400 max-w-lg mx-auto mt-1 mb-4 leading-relaxed">
             {isMetaConnected
-              ? 'Clique em "Sincronizar Facebook Ads" acima para importar seus conjuntos ativos.'
-              : 'Conecte primeiro sua conta do Facebook Ads no Passo 0.'}
+              ? 'Se você já subiu campanhas pagas no Facebook Ads, clique em "Sincronizar Agora". Se está começando com R$ 0,00 (vídeos orgânicos), pode pular direto para a Aba 5!'
+              : 'Esta aba é opcional e exclusiva para anúncios pagos no Facebook Ads. No Modo R$ 0,00 (Orgânico), pule direto para a Aba 5!'}
           </p>
-          {!isMetaConnected ? (
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
+            {!isMetaConnected ? (
+              <button
+                onClick={() => onNavigateTab(0)}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 transition"
+              >
+                Conectar Facebook Ads (Aba 0)
+              </button>
+            ) : (
+              <button
+                onClick={handleSyncMetaAds}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-extrabold text-white transition"
+              >
+                Sincronizar Agora
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
-              onClick={() => onNavigateTab(0)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-xs font-extrabold text-white transition"
-            >
-              Ir para Passo 0 (Conectar Facebook Ads)
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSyncMetaAds}
+              onClick={() => onNavigateTab(5)}
               className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-xs font-extrabold text-white transition"
             >
-              Sincronizar Agora
-              <RefreshCw className="w-3.5 h-3.5" />
+              Pular p/ Aba 5 (Vendas & Webhooks)
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
-          )}
+          </div>
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-800/90 bg-slate-900/75 overflow-hidden">

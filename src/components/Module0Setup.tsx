@@ -196,15 +196,16 @@ const PROVIDERS: ProviderConfig[] = [
   {
     provider: 'META_ADS',
     title: 'Facebook & Instagram Ads',
-    tag: 'Tráfego Pago • Aba 4',
+    tag: 'Opcional • Só p/ Tráfego Pago',
     isEssential: false,
-    shortDesc: 'Sincroniza suas campanhas e ativa o Robô de Stop-Loss e Escala +20%.',
+    shortDesc: 'Opcional no Modo R$ 0,00. Sincroniza campanhas pagas e ativa o Robô de Stop-Loss.',
     docsUrl: 'https://developers.facebook.com/tools/explorer/',
     docsLabel: 'Meta Graph Explorer',
     stepByStepTutorial: [
+      '💡 Começando com R$ 0,00? Deixe desconectado! Você só precisa disso quando for pagar anúncios.',
       '1. Pegue o número da sua Conta de Anúncios no Gerenciador do Facebook (act_123456...).',
-      '2. Gere um Token de Acesso com permissão ads_management em Configurações do Negócio ou Graph Explorer.',
-      '3. Cole o Token, o ID da Conta e o ID do Pixel abaixo.',
+      '2. Atenção: Tokens do Graph Explorer expiram em 1 a 2 horas! Para durar 60 dias, clique no ícone azul "i" ao lado do token -> "Open in Access Token Tool" -> "Extend Access Token" (ou crie um Token Permanente em Configurações do Negócio -> Usuários do Sistema).',
+      '3. Cole o Token, o ID da Conta (act_...) e o ID do Pixel abaixo.',
     ],
     fields: {
       apiKeyLabel: 'Access Token da Meta',

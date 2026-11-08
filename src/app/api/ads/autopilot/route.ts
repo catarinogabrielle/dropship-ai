@@ -46,13 +46,22 @@ async function handleAutopilotExecution(req?: NextRequest) {
     });
   } catch (error: any) {
     const errDetails = error?.response?.data || { message: error.message };
+    const rawMsg = String(
+      errDetails?.error?.message ||
+        errDetails?.message ||
+        error.message ||
+        'Erro ao executar regras do Robo de Trafego Pago'
+    );
+    const isTokenExpired =
+      errDetails?.error?.code === 190 ||
+      /session has expired|validating access token|token.*expired|oauth/i.test(rawMsg);
+
     return NextResponse.json(
       {
-        error:
-          errDetails?.error?.message ||
-          errDetails?.message ||
-          error.message ||
-          'Erro ao executar regras do Robo de Trafego Pago',
+        error: isTokenExpired
+          ? 'Seu Token temporário do Facebook Ads expirou (tokens do Graph Explorer duram apenas 1 a 2 horas). Renove na Aba 0 apenas quando for rodar anúncios pagos.'
+          : rawMsg,
+        tokenExpired: isTokenExpired,
       },
       { status: 400 }
     );
