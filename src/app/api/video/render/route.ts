@@ -8,6 +8,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import { prisma, ensureSqliteTables } from '@/lib/prisma';
 import { ensureCreativeFromVault } from '@/lib/server-vault';
 import { generateEnglishVoiceoverMp3 } from '@/lib/free-tts';
+import { generateCreativeAiVideoMp4, AiVideoStyle } from '@/lib/free-video';
 
 export const maxDuration = 60;
 
@@ -127,6 +128,9 @@ export async function POST(req: NextRequest) {
       const formData = await req.formData();
       const creativeId = String(formData.get('creativeId') || '');
       const voiceId = String(formData.get('voiceId') || 'cgSgspJ2msm6clMCkdW9');
+      const rawStyle = String(formData.get('videoStyle') || 'AI_SCENES');
+      const videoStyle: AiVideoStyle =
+        rawStyle === 'KINETIC_CARDS' ? 'KINETIC_CARDS' : 'AI_SCENES';
       const videoFile = formData.get('video') as File | null;
 
       let vaultCredentials: any = undefined;
@@ -187,6 +191,7 @@ export async function POST(req: NextRequest) {
       const finalVideoFileName = `${creativeId}.mp4`;
       const finalVideoFullPath = path.join(videoOutDir, finalVideoFileName);
       const ffmpegBin = ffmpegStatic || 'ffmpeg';
+      let videoEngineUsed = 'Estúdio IA Criativo (4 Cenas + Legendas + Soundwave)';
 
       if (videoFile && videoFile.size > 0) {
         const rawVideoPath = path.join(uploadsDir, `${creativeId}_raw.mp4`);
@@ -216,30 +221,16 @@ export async function POST(req: NextRequest) {
           '+faststart',
           finalVideoFullPath,
         ]);
+        videoEngineUsed = 'Vídeo de Fundo Enviado + Locução Nativa';
       } else {
-        await execFileAsync(ffmpegBin, [
-          '-y',
-          '-f',
-          'lavfi',
-          '-i',
-          'color=c=0x0b101b:s=720x1280:r=30',
-          '-i',
+        const aiVideoResult = await generateCreativeAiVideoMp4({
+          creative,
           localAudioPath,
-          '-c:v',
-          'libx264',
-          '-tune',
-          'stillimage',
-          '-pix_fmt',
-          'yuv420p',
-          '-c:a',
-          'aac',
-          '-b:a',
-          '192k',
-          '-shortest',
-          '-movflags',
-          '+faststart',
-          finalVideoFullPath,
-        ]);
+          outputVideoPath: finalVideoFullPath,
+          videoStyle,
+          ffmpegBin,
+        });
+        videoEngineUsed = aiVideoResult.videoEngineUsed;
       }
 
       let publicVideoUrl = `/generated/video/${finalVideoFileName}`;
@@ -259,13 +250,14 @@ export async function POST(req: NextRequest) {
 
       await prisma.automationLog.create({
         data: {
-          module: 'FFMPEG_VIDEO_PIPELINE',
-          action: 'VIDEO_MP4_MERGED_WITH_VOICEOVER',
+          module: 'AI_VIDEO_GENERATOR',
+          action: 'CREATIVE_VIDEO_MP4_GENERATED',
           targetId: creative.id,
           httpStatus: 200,
           detailsJson: JSON.stringify({
             serverless: isServerless,
-            videoLoopEnabled: true,
+            videoStyle: videoFile && videoFile.size > 0 ? 'CUSTOM_UPLOAD' : videoStyle,
+            videoEngineUsed,
             ttsEngineUsed,
           }),
         },
@@ -274,6 +266,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         creative: updatedCreative,
         videoFilePath: publicVideoUrl,
+        videoEngineUsed,
         ttsEngineUsed,
         fallbackNotice,
       });

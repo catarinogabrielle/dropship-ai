@@ -13,6 +13,7 @@ import {
   Film,
   Download,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import { CreativeData } from '@/types/autopilot';
 import {
@@ -43,6 +44,9 @@ export default function Module3VideoTikTok({
   onCreativesUpdated,
 }: Module3VideoTikTokProps) {
   const [selectedVoice, setSelectedVoice] = useState<Record<string, string>>({});
+  const [selectedVideoStyle, setSelectedVideoStyle] = useState<
+    Record<string, 'AI_SCENES' | 'KINETIC_CARDS' | 'CUSTOM_UPLOAD'>
+  >({});
   const [selectedVideoFiles, setSelectedVideoFiles] = useState<Record<string, File | null>>({});
   const [publicVideoUrls, setPublicVideoUrls] = useState<Record<string, string>>({});
   const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
@@ -121,7 +125,8 @@ export default function Module3VideoTikTok({
   };
 
   const handleRenderVideoWithFfmpeg = async (creative: CreativeData) => {
-    const file = selectedVideoFiles[creative.id];
+    const modeStyle = selectedVideoStyle[creative.id] || 'AI_SCENES';
+    const file = modeStyle === 'CUSTOM_UPLOAD' ? selectedVideoFiles[creative.id] : null;
 
     setLoadingVideoId(creative.id);
     setFeedback((prev) => {
@@ -134,6 +139,10 @@ export default function Module3VideoTikTok({
       const formData = new FormData();
       formData.append('creativeId', creative.id);
       formData.append('voiceId', selectedVoice[creative.id] || US_VOICES[0].id);
+      formData.append(
+        'videoStyle',
+        modeStyle === 'KINETIC_CARDS' ? 'KINETIC_CARDS' : 'AI_SCENES'
+      );
       formData.append('_vaultCredentials', JSON.stringify(getClientCredentialsPayload()));
       const compactAudio =
         creative.audioFilePath && creative.audioFilePath.length < 1_500_000
@@ -160,7 +169,7 @@ export default function Module3VideoTikTok({
           ...prev,
           [creative.id]: {
             type: 'error',
-            message: data.error || 'Falha ao unir vídeo e locução.',
+            message: data.error || 'Falha ao gerar vídeo comercial.',
           },
         }));
       } else {
@@ -168,12 +177,13 @@ export default function Module3VideoTikTok({
           saveCreativesToVault([data.creative]);
           onCreativesUpdated?.([data.creative]);
         }
-        const ttsInfo = data.ttsEngineUsed ? ` (${data.ttsEngineUsed})` : '';
+        const engineLabel =
+          data.videoEngineUsed || 'Estúdio IA Criativo (4 Cenas + Legendas + Soundwave)';
         setFeedback((prev) => ({
           ...prev,
           [creative.id]: {
             type: 'success',
-            message: `Vídeo comercial .MP4 pronto${ttsInfo}! Baixe e poste grátis no TikTok, Reels e YouTube Shorts.`,
+            message: `Vídeo .MP4 gerado com sucesso via ${engineLabel}! Assista no player ou baixe para postar no TikTok, Reels e Shorts.`,
           },
         }));
         await onRefresh();
@@ -404,41 +414,72 @@ export default function Module3VideoTikTok({
                     </button>
                   </div>
 
-                  {/* Etapa 2: Renderização de Vídeo FFmpeg */}
-                  <div className="rounded-xl bg-slate-950/90 border border-slate-800/90 p-3.5 flex flex-col justify-between space-y-3">
+                  {/* Etapa 2: Gerador de Vídeo Criativo IA + FFmpeg */}
+                  <div className="rounded-xl bg-slate-950/90 border border-cyan-500/30 p-3.5 flex flex-col justify-between space-y-3">
                     <div className="space-y-2.5">
                       <span className="text-xs font-extrabold text-cyan-300 flex items-center gap-1.5">
-                        <Upload className="w-3.5 h-3.5" />
-                        2. Montar Vídeo (.MP4) • Grátis
+                        <Sparkles className="w-3.5 h-3.5" />
+                        2. Gerar Vídeo Criativo c/ IA (.MP4) • Grátis
                       </span>
 
-                      <input
-                        type="file"
-                        accept="video/mp4,video/*"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] || null;
-                          setSelectedVideoFiles((prev) => ({
+                      <select
+                        value={selectedVideoStyle[creative.id] || 'AI_SCENES'}
+                        onChange={(e) =>
+                          setSelectedVideoStyle((prev) => ({
                             ...prev,
-                            [creative.id]: f,
-                          }));
-                        }}
-                        className="w-full text-xs text-slate-300 file:mr-2.5 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-800 file:text-cyan-300 hover:file:bg-slate-700"
-                      />
+                            [creative.id]: e.target.value as
+                              | 'AI_SCENES'
+                              | 'KINETIC_CARDS'
+                              | 'CUSTOM_UPLOAD',
+                          }))
+                        }
+                        className="w-full rounded-lg bg-slate-900 border border-slate-800 px-2.5 py-2 text-xs text-white"
+                      >
+                        <option value="AI_SCENES">
+                          ✨ IA Criativa: 4 Cenas Visuais + Legendas + Movimento (Padrão)
+                        </option>
+                        <option value="KINETIC_CARDS">
+                          ⚡ Motion Cards Virais (Estilo VSL / TikTok Neon)
+                        </option>
+                        <option value="CUSTOM_UPLOAD">
+                          📤 Subir Meu Próprio Vídeo (.MP4 do Pexels)
+                        </option>
+                      </select>
 
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        Envie um vídeo vertical do Pexels (opcional) ou clique direto abaixo para gerar a voz + tela vertical 9:16 grátis.
-                      </p>
+                      {(selectedVideoStyle[creative.id] || 'AI_SCENES') === 'CUSTOM_UPLOAD' ? (
+                        <div className="space-y-1.5">
+                          <input
+                            type="file"
+                            accept="video/mp4,video/*"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              setSelectedVideoFiles((prev) => ({
+                                ...prev,
+                                [creative.id]: f,
+                              }));
+                            }}
+                            className="w-full text-xs text-slate-300 file:mr-2.5 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-slate-800 file:text-cyan-300 hover:file:bg-slate-700"
+                          />
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            Escolha um vídeo vertical .MP4 do seu PC/celular para unir com a locução.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          A IA cria <strong className="text-slate-200">4 cenas animadas (9:16)</strong> com fotos do nicho, legendas em inglês sincronizadas com a voz, estrelas, preço em US$ e ondas de áudio!
+                        </p>
+                      )}
 
                       {creative.videoFilePath && (
                         <div className="space-y-1.5 pt-1">
                           <video
                             controls
                             src={resolveMediaSrc(creative.videoFilePath)}
-                            className="w-full max-h-36 rounded-lg border border-slate-800 bg-black"
+                            className="w-full max-h-48 rounded-lg border border-slate-800 bg-black"
                           />
                           <a
                             href={creative.videoFilePath}
-                            download={`anuncio_usa_${creative.angle}.mp4`}
+                            download={`video_ia_usa_${creative.angle}.mp4`}
                             className="w-full inline-flex items-center justify-center gap-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 py-1.5 text-[11px] font-extrabold text-emerald-300 transition"
                           >
                             <Download className="w-3.5 h-3.5" />
@@ -451,17 +492,17 @@ export default function Module3VideoTikTok({
                     <button
                       onClick={() => handleRenderVideoWithFfmpeg(creative)}
                       disabled={loadingVideoId === creative.id}
-                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 px-3.5 py-2 text-xs font-extrabold text-white transition"
+                      className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 disabled:opacity-50 px-3.5 py-2.5 text-xs font-extrabold text-white transition shadow-lg shadow-cyan-950/50"
                     >
                       {loadingVideoId === creative.id ? (
                         <>
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Renderizando .MP4 Grátis...
+                          Criando Vídeo c/ IA (~8s)...
                         </>
                       ) : (
                         <>
-                          <Video className="w-3.5 h-3.5" />
-                          Gerar Vídeo .MP4 (Grátis)
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Gerar Vídeo Criativo c/ IA (.MP4)
                         </>
                       )}
                     </button>

@@ -288,8 +288,12 @@ export function buildFreeCreativesFallback(params: {
   uniqueMechanism: string;
   painPoints: Array<{ painEn?: string; painPt?: string } | string>;
 }): CreativeGenerationItem[] {
-  const title = cleanKeyword(params.title, '21-Day US Reset Protocol').slice(0, 55);
-  const shortName = title.split(/[-:(]/)[0].trim().slice(0, 26) || 'US Reset Guide';
+  const title = cleanKeyword(params.title, '21-Day US Reset Protocol').slice(0, 58);
+  const rawShort = title.split(/\s+(?:—|–|-)\s+|[:(]/)[0].trim();
+  const shortName =
+    (rawShort.length <= 36
+      ? rawShort
+      : rawShort.slice(0, 36).replace(/\s+\S*$/, '').trim()) || 'US Reset Guide';
   const rawMech = cleanKeyword(
     params.uniqueMechanism,
     'simple 7-minute daily reset method'
